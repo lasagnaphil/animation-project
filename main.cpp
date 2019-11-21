@@ -1,9 +1,11 @@
-#include <iostream>
 #include <InputManager.h>
 #include "App.h"
 #include "PBRenderer.h"
-#include "GizmosRenderer.h"
 #include "FlyCamera.h"
+#include "PhysicsWorld.h"
+
+PxDefaultAllocator gAllocator = {};
+PxDefaultErrorCallback gErrorCallback = {};
 
 class MyApp : public App {
 public:
@@ -63,6 +65,12 @@ public:
         }
 
         sphereMesh = Mesh::makeSphere();
+
+        pxFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, gAllocator, gErrorCallback);
+        if (!pxFoundation) {
+            fprintf(stderr, "PxCreateFoundation Failed!\n");
+            exit(EXIT_FAILURE);
+        }
     }
 
     void setDemo1() {
@@ -130,6 +138,7 @@ public:
     }
 
     void release() override {
+        world.release();
     }
 
 private:
@@ -140,6 +149,9 @@ private:
     Ref<Mesh> groundMesh;
     Ref<Mesh> sphereMesh;
     std::vector<Ref<Transform>> sphereTransforms;
+
+    PxFoundation* pxFoundation;
+    PhysicsWorld world;
 };
 
 int main(int argc, char** argv) {
