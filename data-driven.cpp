@@ -61,169 +61,172 @@ public:
         debugBodyMat2->texDiffuse = {};
         debugBodyMat2->texSpecular = {};
 
-        auto walkBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_15_walk.bvh", 0.01f);
+        auto idleBVH = MotionClipData::loadFromFile("../resources/motion/113_26.bvh", 0.1f);
+        auto walkBVH = MotionClipData::loadFromFile("../resources/motion/111_36.bvh", 0.1f);
 
-        poseTree = walkBVH.poseTree;
+        poseTree = idleBVH.poseTree;
         currentPose = glmx::pose::empty(poseTree.numJoints);
-        currentPose.v.y = 1.05f;
+        //currentPose.v.y = 1.05f;
 
         poseRenderBody = PoseRenderBody::createAsBoxes(poseTree, 0.05f, bodyMat);
         debugPoseRenderBody1 = PoseRenderBody::createAsBoxes(poseTree, 0.05f, debugBodyMat1);
         debugPoseRenderBody2 = PoseRenderBody::createAsBoxes(poseTree, 0.05f, debugBodyMat2);
 
-        auto runBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_55_run.bvh", 0.01f);
-        auto jumpBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_03_high jump.bvh", 0.01f);
-        auto forwardJumpBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_05_forward jump.bvh", 0.01f);
-        auto walkVeerLeftBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_11_walk, veer left.bvh", 0.01f);
-        auto walkVeerRightBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_13_walk, veer right.bvh", 0.01f);
-        auto walkTurnLeftBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_17_walk, 90-degree left turn.bvh", 0.01f);
-        auto walkTurnRightBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_19_walk, 90-degree right turn.bvh", 0.01f);
-        auto runVeerLeftBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_48_run, veer left.bvh", 0.01f);
-        auto runVeerRightBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_49_run, veer right.bvh", 0.01f);
-        auto runTurnLeftBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_51_run, 90-degree left turn.bvh", 0.01f);
-        auto runTurnRightBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_53_run, 90-degree right turn.bvh", 0.01f);
+        // auto runBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_55_run.bvh", 0.01f);
+        //auto jumpBVH = MotionClipData::loadFromFile("../resources/motion/16_03_high jump.bvh", 0.01f);
+        // auto forwardJumpBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_05_forward jump.bvh", 0.01f);
+        // auto walkVeerLeftBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_11_walk, veer left.bvh", 0.01f);
+        // auto walkVeerRightBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_13_walk, veer right.bvh", 0.01f);
+        // auto walkTurnLeftBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_17_walk, 90-degree left turn.bvh", 0.01f);
+        // auto walkTurnRightBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_19_walk, 90-degree right turn.bvh", 0.01f);
+        // auto runVeerLeftBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_48_run, veer left.bvh", 0.01f);
+        // auto runVeerRightBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_49_run, veer right.bvh", 0.01f);
+        // auto runTurnLeftBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_51_run, 90-degree left turn.bvh", 0.01f);
+        // auto runTurnRightBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_53_run, 90-degree right turn.bvh", 0.01f);
 
-        auto idlePoses = std::vector<glmx::pose>(30, jumpBVH.poseStates[0]);
-        auto walkPoses = nonstd::span<glmx::pose>(walkBVH.poseStates.data(), walkBVH.poseStates.size() - 10);
-        auto walkTurnLeftPoses = nonstd::span<glmx::pose>(walkTurnLeftBVH.poseStates.data() + 40, walkTurnLeftBVH.poseStates.size() - 60);
-        auto walkTurnRightPoses = nonstd::span<glmx::pose>(walkTurnRightBVH.poseStates.data() + 40, walkTurnRightBVH.poseStates.size() - 60);
-        auto runPoses = nonstd::span<glmx::pose>(runBVH.poseStates.data() + 24, runBVH.poseStates.size() - 24);
-        auto runTurnLeftPoses = nonstd::span<glmx::pose>(runTurnLeftBVH.poseStates.data() + 10, runTurnLeftBVH.poseStates.size() - 20);
-        auto runTurnRightPoses = nonstd::span<glmx::pose>(runTurnRightBVH.poseStates.data() + 10, runTurnRightBVH.poseStates.size() - 20);
+        auto idlePoses = std::vector<glmx::pose>(30, idleBVH.poseStates[20]);
+        auto walkPoses = nonstd::span<glmx::pose>(walkBVH.poseStates.data() + 1010, 300);
+        // auto walkTurnLeftPoses = nonstd::span<glmx::pose>(walkTurnLeftBVH.poseStates.data() + 40, walkTurnLeftBVH.poseStates.size() - 60);
+        // auto walkTurnRightPoses = nonstd::span<glmx::pose>(walkTurnRightBVH.poseStates.data() + 40, walkTurnRightBVH.poseStates.size() - 60);
+        // auto runPoses = nonstd::span<glmx::pose>(runBVH.poseStates.data() + 24, runBVH.poseStates.size() - 24);
+        // auto runTurnLeftPoses = nonstd::span<glmx::pose>(runTurnLeftBVH.poseStates.data() + 10, runTurnLeftBVH.poseStates.size() - 20);
+        // auto runTurnRightPoses = nonstd::span<glmx::pose>(runTurnRightBVH.poseStates.data() + 10, runTurnRightBVH.poseStates.size() - 20);
 
         auto idleAnim = animFSM.addAnimation("idle", nonstd::span<glmx::pose>(idlePoses.data(), idlePoses.size()));
-        auto walkAnim = animFSM.addAnimation("walk", walkPoses);
-        auto walkVeerLeftAnim = animFSM.addAnimation("walk_veer_left", walkVeerLeftBVH.poseStates);
-        auto walkVeerRightAnim = animFSM.addAnimation("walk_veer_right", walkVeerRightBVH.poseStates);
-        auto walkTurnLeftAnim = animFSM.addAnimation("walk_turn_left", walkTurnLeftPoses);
-        auto walkTurnRightAnim = animFSM.addAnimation("walk_turn_right", walkTurnRightPoses);
-        auto runAnim = animFSM.addAnimation("run", runPoses);
-        auto runVeerLeftAnim = animFSM.addAnimation("run_veer_left", runVeerLeftBVH.poseStates);
-        auto runVeerRightAnim = animFSM.addAnimation("run_veer_right", runVeerRightBVH.poseStates);
-        auto runTurnLeftAnim = animFSM.addAnimation("run_turn_left", runTurnLeftBVH.poseStates);
-        auto runTurnRightAnim = animFSM.addAnimation("run_turn_right", runTurnRightBVH.poseStates);
-        auto jumpAnim = animFSM.addAnimation("jump", jumpBVH.poseStates);
-        auto forwardJumpAnim = animFSM.addAnimation("forward_jump", forwardJumpBVH.poseStates);
+        auto walkAnim = animFSM.addAnimation("walk", walkPoses, 60);
+        // auto walkVeerLeftAnim = animFSM.addAnimation("walk_veer_left", walkVeerLeftBVH.poseStates);
+        // auto walkVeerRightAnim = animFSM.addAnimation("walk_veer_right", walkVeerRightBVH.poseStates);
+        // auto walkTurnLeftAnim = animFSM.addAnimation("walk_turn_left", walkTurnLeftPoses);
+        // auto walkTurnRightAnim = animFSM.addAnimation("walk_turn_right", walkTurnRightPoses);
+        // auto runAnim = animFSM.addAnimation("run", runPoses);
+        // auto runVeerLeftAnim = animFSM.addAnimation("run_veer_left", runVeerLeftBVH.poseStates);
+        // auto runVeerRightAnim = animFSM.addAnimation("run_veer_right", runVeerRightBVH.poseStates);
+        // auto runTurnLeftAnim = animFSM.addAnimation("run_turn_left", runTurnLeftBVH.poseStates);
+        // auto runTurnRightAnim = animFSM.addAnimation("run_turn_right", runTurnRightBVH.poseStates);
+        // auto jumpAnim = animFSM.addAnimation("jump", jumpBVH.poseStates);
+        // auto forwardJumpAnim = animFSM.addAnimation("forward_jump", forwardJumpBVH.poseStates);
 
-        for (Ref<Animation> anim : {idleAnim, walkAnim, walkVeerLeftAnim, walkVeerRightAnim,
-                                    walkTurnLeftAnim, walkTurnRightAnim,
-                                    runAnim, runVeerLeftAnim, runVeerRightAnim, runTurnLeftAnim, runTurnRightAnim,
-                                    jumpAnim, forwardJumpAnim}) {
+        for (Ref<Animation> anim : { idleAnim, walkAnim })
+        // , walkAnim, walkVeerLeftAnim, walkVeerRightAnim,
+        //                             walkTurnLeftAnim, walkTurnRightAnim,
+        //                             runAnim, runVeerLeftAnim, runVeerRightAnim, runTurnLeftAnim, runTurnRightAnim,
+        //                             jumpAnim, forwardJumpAnim}) {
+        {
 
             animFSM.get(anim)->setStartingRootPos(0.0f, 0.0f);
         }
 
         auto idleState = animFSM.addState("idle", idleAnim);
         auto walkState = animFSM.addState("walk", walkAnim);
-        auto runState = animFSM.addState("run", runAnim);
-        auto jumpState = animFSM.addState("jump", jumpAnim);
-        auto forwardJumpState = animFSM.addState("forward_jump", forwardJumpAnim);
-        auto walkVeerLeftState = animFSM.addState("walk_veer_left", walkVeerLeftAnim);
-        auto walkVeerRightState = animFSM.addState("walk_veer_right", walkVeerRightAnim);
-        auto walkTurnLeftState = animFSM.addState("walk_turn_left", walkTurnLeftAnim);
-        auto walkTurnRightState = animFSM.addState("walk_turn_right", walkTurnRightAnim);
-        auto runVeerLeftState = animFSM.addState("run_veer_left", runVeerLeftAnim);
-        auto runVeerRightState = animFSM.addState("run_veer_right", runVeerRightAnim);
-        auto runTurnLeftState = animFSM.addState("run_turn_left", runTurnLeftAnim);
-        auto runTurnRightState = animFSM.addState("run_turn_right", runTurnRightAnim);
+        // auto runState = animFSM.addState("run", runAnim);
+        // auto jumpState = animFSM.addState("jump", jumpAnim);
+        // auto forwardJumpState = animFSM.addState("forward_jump", forwardJumpAnim);
+        // auto walkVeerLeftState = animFSM.addState("walk_veer_left", walkVeerLeftAnim);
+        // auto walkVeerRightState = animFSM.addState("walk_veer_right", walkVeerRightAnim);
+        // auto walkTurnLeftState = animFSM.addState("walk_turn_left", walkTurnLeftAnim);
+        // auto walkTurnRightState = animFSM.addState("walk_turn_right", walkTurnRightAnim);
+        // auto runVeerLeftState = animFSM.addState("run_veer_left", runVeerLeftAnim);
+        // auto runVeerRightState = animFSM.addState("run_veer_right", runVeerRightAnim);
+        // auto runTurnLeftState = animFSM.addState("run_turn_left", runTurnLeftAnim);
+        // auto runTurnRightState = animFSM.addState("run_turn_right", runTurnRightAnim);
 
         animFSM.addParam("is_walking", false);
-        animFSM.addParam("is_walking_veer_left");
-        animFSM.addParam("is_walking_veer_right");
-        animFSM.addParam("is_walking_turn_left");
-        animFSM.addParam("is_walking_turn_right");
-        animFSM.addParam("is_running", false);
-        animFSM.addParam("is_running_veer_left");
-        animFSM.addParam("is_running_veer_right");
-        animFSM.addParam("is_running_turn_left");
-        animFSM.addParam("is_running_turn_right");
-        animFSM.addParam("jump");
-        animFSM.addParam("forward_jump");
+        // animFSM.addParam("is_walking_veer_left");
+        // animFSM.addParam("is_walking_veer_right");
+        // animFSM.addParam("is_walking_turn_left");
+        // animFSM.addParam("is_walking_turn_right");
+        // animFSM.addParam("is_running", false);
+        // animFSM.addParam("is_running_veer_left");
+        // animFSM.addParam("is_running_veer_right");
+        // animFSM.addParam("is_running_turn_left");
+        // animFSM.addParam("is_running_turn_right");
+        // animFSM.addParam("jump");
+        // animFSM.addParam("forward_jump");
 
         auto repeatIdleTrans = animFSM.addTransition("repeat_idle", idleState, idleState, 0.0f, 0.0f, 0.0f);
 
-        auto repeatWalkingTrans = animFSM.addTransition("repeat_walking", walkState, walkState, 0.1f, 0.1f, 0.1f);
+        auto repeatWalkingTrans = animFSM.addTransition("repeat_walking", walkState, walkState, 1.0f, 1.0f, 1.0f);
 
-        auto startWalkingTrans = animFSM.addTransition("start_walking", idleState, walkState, 0.2f, 0.2f, 0.2f);
+        auto startWalkingTrans = animFSM.addTransition("start_walking", idleState, walkState, 1.0f, 1.0f, 1.0f);
         animFSM.setTransitionCondition(startWalkingTrans, "is_walking", true);
 
-        auto stopWalkingTrans = animFSM.addTransition("stop_walking", walkState, idleState, 0.2f, 0.2f, 0.2f);
+        auto stopWalkingTrans = animFSM.addTransition("stop_walking", walkState, idleState, 1.0f, 1.0f, 1.0f);
         animFSM.setTransitionCondition(stopWalkingTrans, "is_walking", false);
 
-        auto startWalkVeerLeftTrans = animFSM.addTransition("start_walk_veer_left", walkState, walkVeerLeftState,
-                0.2f, 0.2f, 0.2f);
-        animFSM.setTransitionTrigger(startWalkVeerLeftTrans, "is_walking_veer_left");
+        // auto startWalkVeerLeftTrans = animFSM.addTransition("start_walk_veer_left", walkState, walkVeerLeftState,
+        //         0.2f, 0.2f, 0.2f);
+        // animFSM.setTransitionTrigger(startWalkVeerLeftTrans, "is_walking_veer_left");
 
-        auto stopWalkVeerLeftTrans = animFSM.addTransition("stop_walk_veer_left", walkVeerLeftState, walkState,
-                                                            0.2f, 0.2f, 0.2f);
+        // auto stopWalkVeerLeftTrans = animFSM.addTransition("stop_walk_veer_left", walkVeerLeftState, walkState,
+        //                                                     0.2f, 0.2f, 0.2f);
 
-        auto startWalkVeerRightTrans = animFSM.addTransition("start_walk_veer_right", walkState, walkVeerRightState,
-                0.2f, 0.2f, 0.2f);
-        animFSM.setTransitionTrigger(startWalkVeerRightTrans, "is_walking_veer_right");
+        // auto startWalkVeerRightTrans = animFSM.addTransition("start_walk_veer_right", walkState, walkVeerRightState,
+        //         0.2f, 0.2f, 0.2f);
+        // animFSM.setTransitionTrigger(startWalkVeerRightTrans, "is_walking_veer_right");
 
-        auto stopWalkVeerRightTrans = animFSM.addTransition("stop_walk_veer_right", walkVeerRightState, walkState,
-                                                             0.2f, 0.2f, 0.2f);
+        // auto stopWalkVeerRightTrans = animFSM.addTransition("stop_walk_veer_right", walkVeerRightState, walkState,
+        //                                                      0.2f, 0.2f, 0.2f);
 
-        auto startWalkTurnLeftTrans = animFSM.addTransition("start_walk_turn_left", walkState, walkTurnLeftState,
-                0.4f, 0.4f, 0.4f);
-        animFSM.setTransitionTrigger(startWalkTurnLeftTrans, "is_walking_turn_left");
+        // auto startWalkTurnLeftTrans = animFSM.addTransition("start_walk_turn_left", walkState, walkTurnLeftState,
+        //         0.4f, 0.4f, 0.4f);
+        // animFSM.setTransitionTrigger(startWalkTurnLeftTrans, "is_walking_turn_left");
 
-        auto stopWalkTurnLeftTrans = animFSM.addTransition("stop_walk_turn_left", walkTurnLeftState, walkState,
-                0.4f, 0.4f, 0.4f);
+        // auto stopWalkTurnLeftTrans = animFSM.addTransition("stop_walk_turn_left", walkTurnLeftState, walkState,
+        //         0.4f, 0.4f, 0.4f);
 
-        auto startWalkTurnRightTrans = animFSM.addTransition("start_walk_turn_right", walkState, walkTurnRightState,
-                                                            0.4f, 0.4f, 0.4f);
-        animFSM.setTransitionTrigger(startWalkTurnRightTrans, "is_walking_turn_right");
+        // auto startWalkTurnRightTrans = animFSM.addTransition("start_walk_turn_right", walkState, walkTurnRightState,
+        //                                                     0.4f, 0.4f, 0.4f);
+        // animFSM.setTransitionTrigger(startWalkTurnRightTrans, "is_walking_turn_right");
 
-        auto stopWalkTurnRightTrans = animFSM.addTransition("stop_walk_turn_right", walkTurnRightState, walkState,
-                                                           0.4f, 0.4f, 0.4f);
+        // auto stopWalkTurnRightTrans = animFSM.addTransition("stop_walk_turn_right", walkTurnRightState, walkState,
+        //                                                    0.4f, 0.4f, 0.4f);
 
-        auto repeatRunningTrans = animFSM.addTransition("repeat_running", runState, runState, 0.1f, 0.1f, 0.1f);
+        // auto repeatRunningTrans = animFSM.addTransition("repeat_running", runState, runState, 0.1f, 0.1f, 0.1f);
 
-        auto startRunningTrans = animFSM.addTransition("start_running", walkState, runState, 0.2f, 0.2f, 0.2f);
-        animFSM.setTransitionCondition(startRunningTrans, "is_running", true);
+        // auto startRunningTrans = animFSM.addTransition("start_running", walkState, runState, 0.2f, 0.2f, 0.2f);
+        // animFSM.setTransitionCondition(startRunningTrans, "is_running", true);
 
-        auto stopRunningTrans = animFSM.addTransition("stop_running", runState, walkState, 0.2f, 0.2f, 0.2f);
-        animFSM.setTransitionCondition(stopRunningTrans, "is_running", false);
+        // auto stopRunningTrans = animFSM.addTransition("stop_running", runState, walkState, 0.2f, 0.2f, 0.2f);
+        // animFSM.setTransitionCondition(stopRunningTrans, "is_running", false);
 
-        auto startRunVeerLeftTrans = animFSM.addTransition("start_run_veer_left", runState, runVeerLeftState,
-                                                           0.3f, 0.3f, 0.3f);
-        animFSM.setTransitionTrigger(startRunVeerLeftTrans, "is_running_veer_left");
+        // auto startRunVeerLeftTrans = animFSM.addTransition("start_run_veer_left", runState, runVeerLeftState,
+        //                                                    0.3f, 0.3f, 0.3f);
+        // animFSM.setTransitionTrigger(startRunVeerLeftTrans, "is_running_veer_left");
 
-        auto stopRunVeerLeftTrans = animFSM.addTransition("stop_run_veer_left", runVeerLeftState, runState,
-                                                          0.3f, 0.3f, 0.3f);
+        // auto stopRunVeerLeftTrans = animFSM.addTransition("stop_run_veer_left", runVeerLeftState, runState,
+        //                                                   0.3f, 0.3f, 0.3f);
 
-        auto startRunVeerRightTrans = animFSM.addTransition("start_run_veer_right", runState, runVeerRightState,
-                                                            0.3f, 0.3f, 0.3f);
-        animFSM.setTransitionTrigger(startRunVeerRightTrans, "is_running_veer_right");
+        // auto startRunVeerRightTrans = animFSM.addTransition("start_run_veer_right", runState, runVeerRightState,
+        //                                                     0.3f, 0.3f, 0.3f);
+        // animFSM.setTransitionTrigger(startRunVeerRightTrans, "is_running_veer_right");
 
-        auto stopRunVeerRightTrans = animFSM.addTransition("stop_run_veer_right", runVeerRightState, runState,
-                                                          0.3f, 0.3f, 0.3f);
+        // auto stopRunVeerRightTrans = animFSM.addTransition("stop_run_veer_right", runVeerRightState, runState,
+        //                                                   0.3f, 0.3f, 0.3f);
 
-        auto startRunTurnLeftTrans = animFSM.addTransition("start_run_turn_left", runState, runTurnLeftState,
-                                                            0.3f, 0.3f, 0.3f);
-        animFSM.setTransitionTrigger(startRunTurnLeftTrans, "is_running_turn_left");
+        // auto startRunTurnLeftTrans = animFSM.addTransition("start_run_turn_left", runState, runTurnLeftState,
+        //                                                     0.3f, 0.3f, 0.3f);
+        // animFSM.setTransitionTrigger(startRunTurnLeftTrans, "is_running_turn_left");
 
-        auto stopRunTurnLeftTrans = animFSM.addTransition("stop_run_turn_left", runTurnLeftState, runState,
-                                                           0.3f, 0.3f, 0.3f);
+        // auto stopRunTurnLeftTrans = animFSM.addTransition("stop_run_turn_left", runTurnLeftState, runState,
+        //                                                    0.3f, 0.3f, 0.3f);
 
-        auto startRunTurnRightTrans = animFSM.addTransition("start_run_turn_right", runState, runTurnRightState,
-                                                             0.3f, 0.3f, 0.3f);
-        animFSM.setTransitionTrigger(startRunTurnRightTrans, "is_running_turn_right");
+        // auto startRunTurnRightTrans = animFSM.addTransition("start_run_turn_right", runState, runTurnRightState,
+        //                                                      0.3f, 0.3f, 0.3f);
+        // animFSM.setTransitionTrigger(startRunTurnRightTrans, "is_running_turn_right");
 
-        auto stopRunTurnRightTrans = animFSM.addTransition("stop_run_turn_right", runTurnRightState, runState,
-                                                            0.3f, 0.3f, 0.3f);
+        // auto stopRunTurnRightTrans = animFSM.addTransition("stop_run_turn_right", runTurnRightState, runState,
+        //                                                     0.3f, 0.3f, 0.3f);
 
-        auto jumpTrans = animFSM.addTransition("jumping", idleState, jumpState, 0.2f, 0.2f, 0.2f);
-        animFSM.setTransitionTrigger(jumpTrans, "jump");
+        // auto jumpTrans = animFSM.addTransition("jumping", idleState, jumpState, 0.2f, 0.2f, 0.2f);
+        // animFSM.setTransitionTrigger(jumpTrans, "jump");
 
-        auto stopJumpTrans = animFSM.addTransition("stop_jumping", jumpState, idleState, 0.2f, 0.2f, 0.2f);
+        // auto stopJumpTrans = animFSM.addTransition("stop_jumping", jumpState, idleState, 0.2f, 0.2f, 0.2f);
 
-        auto forwardJumpTrans = animFSM.addTransition("forward_jumping", walkState, forwardJumpState, 0.2f, 0.2f, 0.2f);
-        animFSM.setTransitionTrigger(forwardJumpTrans, "forward_jump");
+        // auto forwardJumpTrans = animFSM.addTransition("forward_jumping", walkState, forwardJumpState, 0.2f, 0.2f, 0.2f);
+        // animFSM.setTransitionTrigger(forwardJumpTrans, "forward_jump");
 
-        auto stopForwardJumpTrans = animFSM.addTransition("stop_forward_jumping", forwardJumpState, walkState,
-                0.2f, 0.2f, 0.2f);
+        // auto stopForwardJumpTrans = animFSM.addTransition("stop_forward_jumping", forwardJumpState, walkState,
+        //         0.2f, 0.2f, 0.2f);
 
         animFSM.setCurrentState(idleState);
     }
@@ -351,7 +354,7 @@ private:
     Ref<PhongMaterial> groundMat;
     Ref<Mesh> groundMesh;
 
-    bool fixCamera = true;
+    bool fixCamera = false;
 };
 
 int main(int argc, char** argv) {
