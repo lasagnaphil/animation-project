@@ -12,6 +12,8 @@
 #include "PoseKinematics.h"
 #include "AnimStateMachine.h"
 
+#include "Box.h"
+
 #include <glmx/euler.h>
 
 class MyApp : public App {
@@ -34,6 +36,23 @@ public:
         groundMat->texSpecular = {};
 
         groundMesh = Mesh::makePlane(1000.0f, 100.0f);
+
+        // Create box
+        Ref<Image> cubeImage = Image::fromFile("resources/textures/container2.png");
+        Ref<Texture> cubeTexture = Texture::fromImage(cubeImage);
+        cubeImage.release();
+
+        Ref<Image> cubeSpecularImage = Image::fromFile("resources/textures/container2_specular.png");
+        Ref<Texture> cubeSpecularTexture = Texture::fromImage(cubeSpecularImage);
+        cubeSpecularImage.release();
+
+        boxMat = Resources::make<PhongMaterial>();
+        boxMat->ambient = {0.0f, 0.0f, 0.0f, 1.0f};
+        boxMat->shininess = 32.0f;
+        boxMat->texDiffuse = cubeTexture;
+        boxMat->texSpecular = cubeSpecularTexture;
+
+        boxMesh = Mesh::makeCube({1.0f, 0.6f, 0.4f});
 
         // Create empty pose
         // Material of human
@@ -312,8 +331,17 @@ public:
     }
 
     void render() override {
+        // Render ground.
         phongRenderer.queueRender({groundMesh, groundMat, rootTransform->getWorldTransform()});
+
+        // Render body.
         renderMotionClip(phongRenderer, imRenderer, currentPose, poseTree, poseRenderBody);
+
+        // Render box.
+        glm::mat4 boxTransform = Box::getTransformFromHands(currentPose, poseTree, "LeftHand", "RightHand");
+        phongRenderer.queueRender({boxMesh, boxMat, boxTransform});
+
+        phongRenderer.render();
 
         imRenderer.drawAxisTriad(glm::mat4(1.0f), 0.1f, 1.0f, false);
         /*
@@ -322,8 +350,6 @@ public:
         if (animFSM.p2.size() > 0)
             renderMotionClip(phongRenderer, imRenderer, animFSM.p2, poseTree, debugPoseRenderBody2);
         */
-
-        phongRenderer.render();
 
         glm::mat4 rootTransMat = glm::translate(currentPose.v) * glm::mat4_cast(currentPose.q[0]);
         imRenderer.drawAxisTriad(rootTransMat, 0.05f, 0.5f, false);
@@ -354,7 +380,10 @@ private:
     Ref<PhongMaterial> groundMat;
     Ref<Mesh> groundMesh;
 
-    bool fixCamera = false;
+    Ref<PhongMaterial> boxMat;
+    Ref<Mesh> boxMesh;
+
+    bool fixCamera = true;
 };
 
 int main(int argc, char** argv) {

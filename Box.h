@@ -9,7 +9,10 @@
 class Box {
 public:
     // Get this box's model matrix from hand coordinates of the given body.
-    static Transform getTransformFromHands(const glmx::pose& poseState, const PoseTree& poseTree, const std::string &lhand, const std::string &rhand,
+    static glm::mat4 getTransformFromHands( const glmx::pose& poseState, 
+                                            const PoseTree& poseTree, 
+                                            const std::string &lhand, 
+                                            const std::string &rhand,
                                             const glm::mat4& globalTrans = glm::mat4(1.0f));
 };
 

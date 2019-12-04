@@ -1,5 +1,6 @@
 #include "Box.h"
 #include <stack>
+#include <tuple>
 #include <deps/glm/glm/gtx/transform.hpp>
 #include <deps/glm/glm/gtx/string_cast.hpp>
 
@@ -21,13 +22,13 @@ inline glm::mat4 rotationBetweenVecs(glm::vec3 a, glm::vec3 b) {
     }
 }
 
-Transform Box::getTransformFromHands(   const glmx::pose& poseState, 
+glm::mat4 Box::getTransformFromHands(   const glmx::pose& poseState, 
                                         const PoseTree& poseTree, 
                                         const std::string &lhand, 
                                         const std::string &rhand,
-                                        const glm::mat4& globalTrans = glm::mat4(1.0f)) 
+                                        const glm::mat4& globalTrans) 
 {
-    Transform lhandTR, rhandTR;
+    glm::mat4 lhandTR, rhandTR;
     
     std::stack<std::tuple<uint32_t, glm::mat4>> recursionStack;
     recursionStack.push({0, glm::translate(globalTrans, poseState.v)});
@@ -53,17 +54,10 @@ Transform Box::getTransformFromHands(   const glmx::pose& poseState,
                 glm::mat4 initialBoneTransform = initialRot * initialTrans;
                 glm::mat4 T = curTransform * initialBoneTransform;
 
-                // if (body.meshes[nodeIdx - 1]) {
-                //     renderer.queueRender(PhongRenderCommand {
-                //             body.meshes[nodeIdx - 1],
-                //             body.materials[nodeIdx - 1],
-                //             T
-                //     });
-                // }
-
-                // if (debug) {
-                //     imRenderer.drawAxisTriad(T, 0.02f, 0.2f, false);
-                // }
+                if(node.name == lhand)
+                    lhandTR = T;
+                if(node.name == rhand)
+                    rhandTR = T;
             }
 
             curTransform = curTransform * glm::translate(node.offset) * glm::mat4_cast(poseState.q[nodeIdx]);
@@ -72,4 +66,8 @@ Transform Box::getTransformFromHands(   const glmx::pose& poseState,
             }
         }
     }
+    glm::vec4 lpos = lhandTR * glm::vec4(0, 0, 0, 1);
+    glm::vec4 rpos = rhandTR * glm::vec4(0, 0, 0, 1);
+    glm::vec4 bpos = (lpos + rpos) * 0.5f;
+    return glm::translate(glm::vec3(bpos));     // @TODO : Only consider hand positions now. Have to consider hand rotations also...
 }

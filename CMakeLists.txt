@@ -10,7 +10,7 @@ target_include_directories(animation_project PUBLIC gengine)
 target_link_libraries(animation_project gengine)
 add_dependencies(animation_project copy_resource_folder)
 
-add_executable(data_driven_anim data-driven.cpp)
+add_executable(data_driven_anim data-driven.cpp Box.cpp)
 target_include_directories(data_driven_anim PUBLIC gengine)
 target_link_libraries(data_driven_anim gengine)
 add_dependencies(data_driven_anim copy_resource_folder)
