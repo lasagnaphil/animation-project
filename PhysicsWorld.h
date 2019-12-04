@@ -27,6 +27,10 @@ struct PhysicsWorld {
 
     void release();
 
+    const PxRenderBuffer& getRenderBuffer() const {
+        return scene->getRenderBuffer();
+    }
+
     PxFoundation* foundation;
     PxPhysics* physics;
     // PxCudaContextManager* cudaContextManager;
