@@ -28,7 +28,7 @@ glm::mat4 Box::getTransformFromHands(   const glmx::pose& poseState,
                                         const std::string &rhand,
                                         const glm::mat4& globalTrans) 
 {
-    glm::mat4 lhandTR, rhandTR;
+    glm::mat4 rootTR, lhandTR, rhandTR;
     
     std::stack<std::tuple<uint32_t, glm::mat4>> recursionStack;
     recursionStack.push({0, glm::translate(globalTrans, poseState.v)});
@@ -54,6 +54,8 @@ glm::mat4 Box::getTransformFromHands(   const glmx::pose& poseState,
                 glm::mat4 initialBoneTransform = initialRot * initialTrans;
                 glm::mat4 T = curTransform * initialBoneTransform;
 
+                if(node.isRoot())
+                    rootTR = T;
                 if(node.name == lhand)
                     lhandTR = T;
                 if(node.name == rhand)
@@ -69,5 +71,5 @@ glm::mat4 Box::getTransformFromHands(   const glmx::pose& poseState,
     glm::vec4 lpos = lhandTR * glm::vec4(0, 0, 0, 1);
     glm::vec4 rpos = rhandTR * glm::vec4(0, 0, 0, 1);
     glm::vec4 bpos = (lpos + rpos) * 0.5f;
-    return glm::translate(glm::vec3(bpos));     // @TODO : Only consider hand positions now. Have to consider hand rotations also...
+    return glm::translate(glm::vec3(bpos) + glm::vec3(0, 0, 0.2f));     // @TODO : Only consider hand positions now. Have to consider hand rotations also...
 }

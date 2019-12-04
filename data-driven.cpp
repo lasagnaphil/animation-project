@@ -383,7 +383,7 @@ private:
     Ref<PhongMaterial> boxMat;
     Ref<Mesh> boxMesh;
 
-    bool fixCamera = true;
+    bool fixCamera = false;
 };
 
 int main(int argc, char** argv) {
