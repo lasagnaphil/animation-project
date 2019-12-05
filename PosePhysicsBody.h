@@ -10,7 +10,6 @@
 
 struct PosePhysicsBody {
     physx::PxArticulationReducedCoordinate* articulation;
-    std::vector<PxArticulationLink*> links;
 
     PxArticulationCache* cache;
 
@@ -23,7 +22,8 @@ struct PosePhysicsBody {
         articulation->setSolverIterationCounts(32);
 
         nodeToLink[0] = articulation->createLink(nullptr, PxTransform(PxIdentity));
-        auto rootBall = PxSphereGeometry(0.1f);
+        nodeToLink[0]->setName("root");
+        auto rootBall = PxSphereGeometry(0.02f);
         PxShape* shape = PxRigidActorExt::createExclusiveShape(*nodeToLink[0], rootBall, *world.defaultMaterial);
         PxRigidBodyExt::updateMassAndInertia(*nodeToLink[0], 1.0f);
 
@@ -39,27 +39,40 @@ struct PosePhysicsBody {
             // render bone related to current node (we exclude root node)
             if (nodeIdx != 0 && glm::length(node.offset) > glm::epsilon<float>()) {
                 float boneLength = glm::length(node.offset);
-                glm::vec3 a = glm::normalize(node.offset);
-                glm::vec3 b = {1, 0, 0};
+                glm::mat3 coordT;
+                coordT[0] = glm::normalize(node.offset);
+                if (node.offset.y >= 0) coordT[2] = {0, 0, 1};
+                else coordT[2] = {0, 0, -1};
+                coordT[1] = glm::normalize(glm::cross(coordT[2], coordT[0]));
+                glmx::transform shapeTransform = glmx::transform(node.offset / 2.f, glm::quat_cast(coordT));
 
                 PxArticulationLink* parentLink = nodeToLink[parentIdx];
                 PxArticulationLink* link = articulation->createLink(parentLink, PxTransform(GLMToPx(parentTransform.v)));
+                /*
+                link->setName(poseTree[node.parent].name.c_str());
+                 */
+                if (node.isEndSite) {
+                    link->setName(("End Site " + std::to_string(nodeIdx)).c_str());
+                }
+                else {
+                    link->setName(node.name.c_str());
+                }
                 auto geometry = PxBoxGeometry(boneLength/2, 0.01f, 0.01f);
                 PxShape* shape = PxRigidActorExt::createExclusiveShape(*link, geometry, *world.defaultMaterial);
-                glmx::transform shapeTransform = glmx::transform(node.offset / 2.f, glmx::quatBetweenVecs(a, b));
                 shape->setLocalPose(GLMToPx(shapeTransform));
                 PxRigidBodyExt::updateMassAndInertia(*link, 1.0f);
                 nodeToLink[nodeIdx] = link;
 
-                if (parentLink) {
-                    // PxTransform t_ParentBodyToJoint = PxTransform(parentLink->getGlobalPose().transformInv(jointTransform));
-                    // PxTransform t_ChildBodyToJoint = PxTransform(link->getGlobalPose().transformInv(jointTransform));
+                // PxTransform t_ParentBodyToJoint = PxTransform(parentLink->getGlobalPose().transformInv(jointTransform));
+                // PxTransform t_ChildBodyToJoint = PxTransform(link->getGlobalPose().transformInv(jointTransform));
 
-                    auto pxJoint = static_cast<PxArticulationJointReducedCoordinate*>(link->getInboundJoint());
-                    // pxJoint->setChildPose(PxTransform(GLMToPx(glm::angleAxis((float)M_PI/2, glm::vec3(1, 0, 0)))));
-                    // pxJoint->setParentPose(PxTransform(GLMToPx(parentTransform.v), GLMToPx(parentTransform.q)));
-                    pxJoint->setParentPose(PxTransform(GLMToPx(parentTransform.v), GLMToPx(glm::conjugate(glmx::quatBetweenVecs(a, b)))));
-                    pxJoint->setChildPose(PxTransform(GLMToPx(glm::conjugate(glmx::quatBetweenVecs(a, b)))));
+                auto pxJoint = static_cast<PxArticulationJointReducedCoordinate*>(link->getInboundJoint());
+                pxJoint->setParentPose(PxTransform(GLMToPx(parentTransform.v), GLMToPx(glm::conjugate(shapeTransform.q))));
+                pxJoint->setChildPose(PxTransform(GLMToPx(glm::conjugate(shapeTransform.q))));
+                if (parentIdx == 0) {
+                    pxJoint->setJointType(PxArticulationJointType::eFIX);
+                }
+                else {
                     pxJoint->setJointType(PxArticulationJointType::eSPHERICAL);
                     pxJoint->setMotion(PxArticulationAxis::eTWIST, PxArticulationMotion::eFREE);
                     pxJoint->setMotion(PxArticulationAxis::eSWING1, PxArticulationMotion::eFREE);
@@ -82,6 +95,7 @@ struct PosePhysicsBody {
         aggregate->addArticulation(*articulation);
         world.scene->addAggregate(*aggregate);
 
+        std::vector<PxArticulationLink*> links;
         links.resize(articulation->getNbLinks());
         articulation->getLinks(links.data(), links.size());
 
@@ -143,7 +157,10 @@ struct PosePhysicsBody {
             v.x = cache->jointPosition[dofStarts[li]];
             v.y = cache->jointPosition[dofStarts[li] + 1];
             v.z = cache->jointPosition[dofStarts[li] + 2];
-            pose.q[i] = glmx::eulerToQuat(v, EulOrdZYXs);
+            glm::quat twist =  glm::quat(cos(0.5f * v.x), sin(0.5f * v.x), 0, 0);
+            glm::quat swing1 =  glm::quat(cos(0.5f * v.y), 0, sin(0.5f * v.y), 0);
+            glm::quat swing2 =  glm::quat(cos(0.5f * v.z), 0, 0, sin(0.5f * v.z));
+            pose.q[i] = swing2 * swing1 * twist;
         }
     }
 
@@ -162,14 +179,19 @@ struct PosePhysicsBody {
             ImGui::SliderFloat3("Root Rotation", (float*)&euler, -M_PI, M_PI);
             cache->rootLinkData->transform.q = GLMToPx(glmx::eulerToQuat(euler, EulOrdZYXs));
 
+            /*
             for (auto link : links) {
                 uint32_t li = link->getLinkIndex();
                 glm::vec3 euler;
                 euler.x = cache->jointPosition[dofStarts[li]];
                 euler.y = cache->jointPosition[dofStarts[li] + 1];
                 euler.z = cache->jointPosition[dofStarts[li] + 2];
-                std::string linkName = "link_" + std::to_string(li);
-                bool linkEdited = ImGui::SliderFloat3(linkName.c_str(), (float*)&euler, -M_PI, M_PI);
+                float pi = glm::pi<float>();
+                float epsilon = glm::epsilon<float>();
+                euler.x = fmod(euler.x + pi, 2*pi) - pi;
+                euler.y = fmod(euler.y + pi, 2*pi) - pi;
+                euler.z = fmod(euler.z + pi, 2*pi) - pi;
+                bool linkEdited = ImGui::SliderFloat3(link->getName(), (float*)&euler, -pi + epsilon, pi - epsilon);
                 if (linkEdited) {
                     cache->jointPosition[dofStarts[li]] = euler.x;
                     cache->jointPosition[dofStarts[li] + 1] = euler.y;
@@ -177,6 +199,7 @@ struct PosePhysicsBody {
                 }
                 edited |= linkEdited;
             }
+             */
 
             if (edited) {
                 articulation->applyCache(*cache, PxArticulationCache::eROOT | PxArticulationCache::ePOSITION);

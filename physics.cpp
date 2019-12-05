@@ -64,6 +64,7 @@ public:
         }
         poseTree = bvh.poseTree;
         currentPose = glmx::pose::empty(19);
+        convertedPose = currentPose;
 
         motionClipPlayer = MotionClipPlayer(&bvh);
         motionClipPlayer.init();
@@ -76,7 +77,11 @@ public:
         poseBodyMat->texRoughness =
                 Texture::fromSingleColor({0.5f, 0.0f, 0.0f});
 
+        Ref<PBRMaterial> poseBodyMat2 = Resources::clone<PBRMaterial>(poseBodyMat);
+        poseBodyMat2->texAlbedo = Texture::fromSingleColor({0.0f, 0.5f, 0.0f});
+
         poseRenderBody = PoseRenderBodyPBR::createAsBoxes(poseTree, 0.02f, poseBodyMat);
+        poseRenderBody2 = PoseRenderBodyPBR::createAsBoxes(poseTree, 0.02f, poseBodyMat2);
 
         pxFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, gAllocator, gErrorCallback);
         if (!pxFoundation) {
@@ -98,10 +103,12 @@ public:
     void update(float dt) override {
         auto inputMgr = InputManager::get();
         motionClipPlayer.update(dt);
-        if (motionClipPlayer.shouldUpdate) {
-            currentPose = motionClipPlayer.getPoseState();
+        // if (motionClipPlayer.shouldUpdate) {
+            // currentPose = motionClipPlayer.getPoseState();
             posePhysicsBody.setPose(currentPose);
-        }
+            convertedPose = currentPose;
+            posePhysicsBody.getPose(convertedPose);
+        // }
         bool advanced = world.advance(dt);
         if (advanced) {
             world.fetchResults();
@@ -114,6 +121,7 @@ public:
 
         // pbRenderer.queueRender({groundMesh, groundMat, rootTransform->getWorldTransform()});
         renderMotionClip(pbRenderer, imRenderer, currentPose, poseTree, poseRenderBody);
+        renderMotionClip(pbRenderer, imRenderer, convertedPose, poseTree, poseRenderBody2);
         pbRenderer.render();
 
         imRenderer.drawPoint(pbRenderer.pointLights[0].position, colors::Yellow, 4.0f, true);
@@ -126,6 +134,23 @@ public:
 
         motionClipPlayer.renderImGui();
         posePhysicsBody.renderImGui();
+
+        renderImGui();
+    }
+
+    void renderImGui() {
+        ImGui::Begin("Pose");
+
+        for (uint32_t i = 0; i < poseTree.numJoints; i++) {
+            auto& node = poseTree[i];
+            glm::vec3 v = glmx::quatToEuler(currentPose.q[i], EulOrdXYZs);
+            ImGui::PushItemWidth(ImGui::GetFontSize() * 24);
+            ImGui::SliderFloat3(node.name.c_str(), (float*)&v, -M_PI/2, M_PI/2);
+            ImGui::PopItemWidth();
+            currentPose.q[i] = glmx::eulerToQuat(v);
+        }
+
+        ImGui::End();
     }
 
     void release() override {
@@ -141,11 +166,11 @@ private:
     Ref<Mesh> sphereMesh;
     std::vector<Ref<Transform>> sphereTransforms;
 
-    glmx::pose currentPose;
+    glmx::pose currentPose, convertedPose;
     PoseTree poseTree;
     MotionClipData bvh;
     MotionClipPlayer motionClipPlayer;
-    PoseRenderBodyPBR poseRenderBody;
+    PoseRenderBodyPBR poseRenderBody, poseRenderBody2;
 
     PxFoundation* pxFoundation;
     PhysicsWorld world;
