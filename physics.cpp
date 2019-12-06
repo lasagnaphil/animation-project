@@ -57,13 +57,16 @@ public:
 
         groundMesh = Mesh::makePlane(100.0f, 100.0f);
 
-        bvh = MotionClipData::loadFromFile("resources/16_15_walk.bvh", 0.01f);
+        bvh = MotionClipData::loadFromFile("resources/127_25_1.bvh", 0.01f);
         if (!bvh.valid) {
             fprintf(stderr, "BVH load failed!\n");
             exit(EXIT_FAILURE);
         }
         poseTree = bvh.poseTree;
-        currentPose = glmx::pose::empty(19);
+        // for (auto& poseState : bvh.poseStates) {
+            // poseState.v.y -= poseTree[0].offset.y;
+        //}
+        currentPose = bvh.poseStates[0];
         convertedPose = currentPose;
 
         motionClipPlayer = MotionClipPlayer(&bvh);
@@ -90,7 +93,9 @@ public:
         }
         world.init(pxFoundation, 1);
 
-        posePhysicsBody.init(world, poseTree);
+        posePhysicsBodySkel = PosePhysicsBodySkel::fromFile("resources/humanoid_complex_edited.xml", poseTree);
+        posePhysicsBody.init(world, poseTree, posePhysicsBodySkel);
+        posePhysicsBody.setRoot(glmx::transform(glm::vec3(0.f, 0.9f, 0.f)));
 
         pxDebugRenderer.init(world);
         pxDebugRenderer.setCamera(camera);
@@ -121,13 +126,14 @@ public:
 
         // pbRenderer.queueRender({groundMesh, groundMat, rootTransform->getWorldTransform()});
         renderMotionClip(pbRenderer, imRenderer, currentPose, poseTree, poseRenderBody);
-        renderMotionClip(pbRenderer, imRenderer, convertedPose, poseTree, poseRenderBody2);
+        // renderMotionClip(pbRenderer, imRenderer, convertedPose, poseTree, poseRenderBody2);
         pbRenderer.render();
 
         imRenderer.drawPoint(pbRenderer.pointLights[0].position, colors::Yellow, 4.0f, true);
         imRenderer.drawPoint(pbRenderer.pointLights[1].position, colors::Yellow, 4.0f, true);
         // imRenderer.drawPoint(pbRenderer.pointLights[2].position, colors::Yellow, 4.0f, true);
         // imRenderer.drawPoint(pbRenderer.pointLights[3].position, colors::Yellow, 4.0f, true);
+        imRenderer.drawAxisTriad(glm::mat4(1.0f), 0.1f, 1.0f, false);
         imRenderer.render();
 
         pxDebugRenderer.render(world);
@@ -141,12 +147,13 @@ public:
     void renderImGui() {
         ImGui::Begin("Pose");
 
+        ImGui::DragFloat3((poseTree[0].name + " pos").c_str(), (float*)&currentPose.v, 0.01f);
         for (uint32_t i = 0; i < poseTree.numJoints; i++) {
             auto& node = poseTree[i];
             glm::vec3 v = glmx::quatToEuler(currentPose.q[i], EulOrdXYZs);
-            ImGui::PushItemWidth(ImGui::GetFontSize() * 24);
-            ImGui::SliderFloat3(node.name.c_str(), (float*)&v, -M_PI/2, M_PI/2);
-            ImGui::PopItemWidth();
+            // ImGui::PushItemWidth(ImGui::GetFontSize() * 24);
+            ImGui::DragFloat3(node.name.c_str(), (float*)&v, 0.01f);
+            // ImGui::PopItemWidth();
             currentPose.q[i] = glmx::eulerToQuat(v);
         }
 
@@ -176,6 +183,7 @@ private:
     PhysicsWorld world;
     PhysXDebugRenderer pxDebugRenderer;
     PosePhysicsBody posePhysicsBody;
+    PosePhysicsBodySkel posePhysicsBodySkel;
 };
 
 int main(int argc, char** argv) {

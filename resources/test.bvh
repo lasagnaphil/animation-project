@@ -1,0 +1,105 @@
+HIERARCHY
+ROOT Hips
+{
+  OFFSET 0 90 0
+  CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+  JOINT Spine
+  {
+    OFFSET 0 10 0
+    CHANNELS 3 Zrotation Xrotation Yrotation
+    JOINT Neck
+    {
+      OFFSET 0 30 0
+      CHANNELS 3 Zrotation Xrotation Yrotation
+      JOINT Head
+      {
+        OFFSET 0 8 0
+        CHANNELS 3 Zrotation Xrotation Yrotation
+        End Site
+        {
+          OFFSET 0 10 0
+        }
+      }
+    }
+    JOINT LeftArm
+    {
+      OFFSET 15 30 0
+      CHANNELS 3 Zrotation Xrotation Yrotation
+      JOINT LeftForeArm
+      {
+        OFFSET 25 0 0
+        CHANNELS 3 Zrotation Xrotation Yrotation
+        JOINT LeftHand
+        {
+          OFFSET 25 0 0
+          CHANNELS 3 Zrotation Xrotation Yrotation
+          End Site
+          {
+            OFFSET 10 0 0
+          }
+        }
+      }
+    }
+    JOINT RightArm
+    {
+      OFFSET -15 30 0
+      CHANNELS 3 Zrotation Xrotation Yrotation
+      JOINT RightForeArm
+      {
+        OFFSET -25 0 0
+        CHANNELS 3 Zrotation Xrotation Yrotation
+        JOINT RightHand
+        {
+          OFFSET -25 0 0
+          CHANNELS 3 Zrotation Xrotation Yrotation
+          End Site
+          {
+            OFFSET -10 0 0
+          }
+        }
+      }
+    }
+  }
+  JOINT LeftUpLeg
+  {
+    OFFSET 10 -10 0
+    CHANNELS 3 Zrotation Xrotation Yrotation
+    JOINT LeftLeg
+    {
+      OFFSET 0 -35 0
+      CHANNELS 3 Zrotation Xrotation Yrotation
+      JOINT LeftFoot
+      {
+        OFFSET 0 -40 0
+        CHANNELS 3 Zrotation Xrotation Yrotation
+        End Site
+        {
+          OFFSET 0 0 15
+        }
+      }
+    }
+  }
+  JOINT RightUpLeg
+  {
+    OFFSET -10 -10 0
+    CHANNELS 3 Zrotation Xrotation Yrotation
+    JOINT RightLeg
+    {
+      OFFSET 0 -35 0
+      CHANNELS 3 Zrotation Xrotation Yrotation
+      JOINT RightFoot
+      {
+        OFFSET 0 -40 0
+        CHANNELS 3 Zrotation Xrotation Yrotation
+        End Site
+        {
+          OFFSET 0 0 15
+        }
+      }
+    }
+  }
+}
+MOTION
+Frames: 1
+Frame Time: 0.0333333
+0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0
