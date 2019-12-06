@@ -108,12 +108,12 @@ public:
     void update(float dt) override {
         auto inputMgr = InputManager::get();
         motionClipPlayer.update(dt);
-        // if (motionClipPlayer.shouldUpdate) {
-            // currentPose = motionClipPlayer.getPoseState();
-            posePhysicsBody.setPose(currentPose);
+        if (motionClipPlayer.shouldUpdate) {
+            currentPose = motionClipPlayer.getPoseState();
+            posePhysicsBody.setPose(currentPose, poseTree);
             convertedPose = currentPose;
-            posePhysicsBody.getPose(convertedPose);
-        // }
+            posePhysicsBody.getPose(convertedPose, poseTree);
+        }
         bool advanced = world.advance(dt);
         if (advanced) {
             world.fetchResults();
@@ -126,7 +126,7 @@ public:
 
         // pbRenderer.queueRender({groundMesh, groundMat, rootTransform->getWorldTransform()});
         renderMotionClip(pbRenderer, imRenderer, currentPose, poseTree, poseRenderBody);
-        // renderMotionClip(pbRenderer, imRenderer, convertedPose, poseTree, poseRenderBody2);
+        renderMotionClip(pbRenderer, imRenderer, convertedPose, poseTree, poseRenderBody2);
         pbRenderer.render();
 
         imRenderer.drawPoint(pbRenderer.pointLights[0].position, colors::Yellow, 4.0f, true);
