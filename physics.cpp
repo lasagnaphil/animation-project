@@ -23,14 +23,15 @@ public:
         cameraTransform->setPosition({0.0f, 0.0f, 1.0f});
 
         pbRenderer.dirLightProjVolume = {
-                {-20.f, -20.f, 0.f}, {20.f, 20.f, 1000.f}
+                {-10.f, -10.f, 0.f}, {10.f, 10.f, 1000.f}
         };
         pbRenderer.shadowFramebufferSize = {2048, 2048};
 
         pbRenderer.dirLight.enabled = true;
         pbRenderer.dirLight.direction = glm::normalize(glm::vec3 {2.0f, -3.0f, -2.0f});
-        pbRenderer.dirLight.color = {0.5f, 0.5f, 0.5f};
+        pbRenderer.dirLight.color = {5.f, 5.f, 5.f};
 
+        /*
         pbRenderer.pointLights[0].enabled = true;
         pbRenderer.pointLights[0].position = {-1.0f, -1.0f + 1.75f, 1.0f};
         pbRenderer.pointLights[0].color = {30.f, 30.f, 30.f};
@@ -39,7 +40,6 @@ public:
         pbRenderer.pointLights[1].position = {1.0f, -1.0f + 1.75f, 1.0f};
         pbRenderer.pointLights[1].color = {30.f, 30.f, 30.f};
 
-        /*
         pbRenderer.pointLights[2].enabled = true;
         pbRenderer.pointLights[2].position = {-10.0f, 10.0f + 17.5f, 10.0f};
         pbRenderer.pointLights[2].color = {300.f, 300.f, 300.f};
@@ -71,6 +71,7 @@ public:
 
         motionClipPlayer = MotionClipPlayer(&bvh);
         motionClipPlayer.init();
+        motionClipPlayer.setFrame(0);
 
         Ref<PBRMaterial> poseBodyMat = Resources::make<PBRMaterial>();
         poseBodyMat->texAlbedo = Texture::fromSingleColor({0.5f, 0.0f, 0.0f});
@@ -96,9 +97,13 @@ public:
         posePhysicsBodySkel = PosePhysicsBodySkel::fromFile("resources/humanoid_complex_edited.xml", poseTree);
         posePhysicsBody.init(world, poseTree, posePhysicsBodySkel);
         posePhysicsBody.setRoot(glmx::transform(glm::vec3(0.f, 0.9f, 0.f)));
+        posePhysicsBody.putToSleep();
 
         pxDebugRenderer.init(world);
         pxDebugRenderer.setCamera(camera);
+
+        currentPose = motionClipPlayer.getPoseState();
+        posePhysicsBody.setPose(currentPose, poseTree);
 
     }
 
@@ -106,19 +111,53 @@ public:
     }
 
     void update(float dt) override {
+        static float time = 0.f;
+        const float physicsDt = 1.0f / 120.0f;
+
+        time += dt;
         auto inputMgr = InputManager::get();
-        motionClipPlayer.update(dt);
-        if (motionClipPlayer.shouldUpdate) {
-            currentPose = motionClipPlayer.getPoseState();
-            posePhysicsBody.setPose(currentPose, poseTree);
-            convertedPose = currentPose;
-            posePhysicsBody.getPose(convertedPose, poseTree);
+        if (inputMgr->isKeyEntered(SDL_SCANCODE_SPACE)) {
+            enablePhysics = !enablePhysics;
         }
-        bool advanced = world.advance(dt);
-        if (advanced) {
-            world.fetchResults();
+        motionClipPlayer.update(dt);
+        while (time >= physicsDt) {
+            time -= physicsDt;
+
+            if (enableManipulation) {
+                posePhysicsBody.setPose(currentPose, poseTree, true);
+                if (enablePhysics) {
+                    bool advanced = world.advance(physicsDt);
+                    if (advanced) {
+                        world.fetchResults();
+                    }
+                }
+                posePhysicsBody.getPose(convertedPose, poseTree);
+            }
+            else if (enableRagdoll) {
+                if (enablePhysics) {
+                    bool advanced = world.advance(physicsDt);
+                    if (advanced) {
+                        world.fetchResults();
+                    }
+                }
+                posePhysicsBody.getPose(currentPose, poseTree);
+                // posePhysicsBody.getPose(convertedPose, poseTree);
+            }
+            else {
+                currentPose = motionClipPlayer.getPoseState();
+                posePhysicsBody.setPose(currentPose, poseTree, true);
+                // posePhysicsBody.getPose(convertedPose, poseTree);
+
+                /*
+                bool advanced = world.advance(physicsDt);
+                if (advanced) {
+                    world.fetchResults();
+                }
+                 */
+            }
         }
     }
+
 
     void render() override {
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -139,22 +178,45 @@ public:
         pxDebugRenderer.render(world);
 
         motionClipPlayer.renderImGui();
-        posePhysicsBody.renderImGui();
 
         renderImGui();
     }
 
     void renderImGui() {
-        ImGui::Begin("Pose");
+        ImGui::Begin("Character Data");
 
-        ImGui::DragFloat3((poseTree[0].name + " pos").c_str(), (float*)&currentPose.v, 0.01f);
-        for (uint32_t i = 0; i < poseTree.numJoints; i++) {
-            auto& node = poseTree[i];
-            glm::vec3 v = glmx::quatToEuler(currentPose.q[i], EulOrdXYZs);
-            // ImGui::PushItemWidth(ImGui::GetFontSize() * 24);
-            ImGui::DragFloat3(node.name.c_str(), (float*)&v, 0.01f);
-            // ImGui::PopItemWidth();
-            currentPose.q[i] = glmx::eulerToQuat(v);
+        ImGui::Checkbox("Enable Manipulation", &enableManipulation);
+        if (!enableManipulation) {
+            if (ImGui::Button("Ragdoll")) {
+                enableRagdoll = true;
+                posePhysicsBody.getPose(convertedPose, poseTree);
+                posePhysicsBody.setPose(currentPose, poseTree);
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Reset")) {
+                enableRagdoll = false;
+                motionClipPlayer.setFrame(30);
+                currentPose = motionClipPlayer.getPoseState();
+                posePhysicsBody.setPose(currentPose, poseTree);
+
+            }
+        }
+
+        if (ImGui::TreeNode("Kinematics")) {
+            ImGui::DragFloat3((poseTree[0].name + " pos").c_str(), (float*)&currentPose.v, 0.01f);
+            for (uint32_t i = 0; i < poseTree.numJoints; i++) {
+                auto& node = poseTree[i];
+                glm::vec3 v = glmx::quatToEuler(currentPose.q[i], EulOrdZYXs);
+                if (ImGui::DragFloat3(node.name.c_str(), (float*)&v, 0.01f)) {
+                    currentPose.q[i] = glmx::eulerToQuat(v, EulOrdZYXs);
+                }
+            }
+            ImGui::TreePop();
+        }
+
+        if (ImGui::TreeNode("PhysX")) {
+            posePhysicsBody.renderImGui();
+            ImGui::TreePop();
         }
 
         ImGui::End();
@@ -184,6 +246,10 @@ private:
     PhysXDebugRenderer pxDebugRenderer;
     PosePhysicsBody posePhysicsBody;
     PosePhysicsBodySkel posePhysicsBodySkel;
+
+    bool enableRagdoll = false;
+    bool enableManipulation = false;
+    bool enablePhysics = true;
 };
 
 int main(int argc, char** argv) {

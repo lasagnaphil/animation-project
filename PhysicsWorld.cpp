@@ -50,10 +50,8 @@ void PhysicsWorld::init(PxFoundation* foundation, uint32_t numThreads = 16) {
     defaultMaterial = physics->createMaterial(0.5f, 0.5f, 0.6f);
 
     // create ground
-    /*
-    PxRigidStatic* groundPlane = PxCreatePlane(*physics, PxPlane(0,1,0,0), *material);
-    scene->addActor(*groundPlane);
-     */
+    // PxRigidStatic* groundPlane = PxCreatePlane(*physics, PxPlane(0,1,0,0), *defaultMaterial);
+    // scene->addActor(*groundPlane);
 }
 
 bool PhysicsWorld::advance(float dt) {

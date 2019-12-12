@@ -62,6 +62,7 @@ struct PosePhysicsBodySkel {
         std::vector<uint32_t> childIdx;
         glm::vec3 size;
         float mass;
+        glm::vec3 xdir;
         glm::vec3 bodyTrans;
         glm::vec3 jointTrans;
         Shape shape;
@@ -138,6 +139,7 @@ struct PosePhysicsBodySkel {
                 exit(EXIT_FAILURE);
             }
             XMLElement* bodyPosNode = jointNode->FirstChildElement("BodyPosition");
+            joint.xdir = stringToVec3(bodyPosNode->FindAttribute("xdir")->Value());
             joint.bodyTrans = stringToVec3(bodyPosNode->FindAttribute("translation")->Value());
             XMLElement* jointPosNode = jointNode->FirstChildElement("JointPosition");
             joint.jointTrans = stringToVec3(jointPosNode->FindAttribute("translation")->Value());
