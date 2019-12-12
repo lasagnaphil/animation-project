@@ -9,8 +9,8 @@ void PhysicsWorld::init(PxFoundation* foundation, uint32_t numThreads = 16) {
     this->foundation = foundation;
 
     PxTolerancesScale scale;
-    scale.length = 1.00;
-    scale.speed = 9.81;
+    scale.length = 1.0f;
+    scale.speed = 9.81f;
 
     physics = PxCreatePhysics(PX_PHYSICS_VERSION, *foundation,
                               scale, true, nullptr);
@@ -19,28 +19,25 @@ void PhysicsWorld::init(PxFoundation* foundation, uint32_t numThreads = 16) {
         exit(EXIT_FAILURE);
     }
 
-    /*
     cooking = PxCreateCooking(PX_PHYSICS_VERSION, *foundation, PxCookingParams(scale));
     if (!cooking) {
         std::cerr << "PxCreateCooking failed!" << std::endl;
         exit(EXIT_FAILURE);
     }
-     */
 
-    /*
-    PxCudaContextManagerDesc cudaContextManagerDesc;
-    cudaContextManager = PxCreateCudaContextManager(*foundation, cudaContextManagerDesc, PxGetProfilerCallback());
-     */
 
     PxSceneDesc sceneDesc(physics->getTolerancesScale());
-    // sceneDesc.gravity = PxVec3(0.0f, -9.81f, 0.0f);
-    sceneDesc.gravity = PxVec3(0.0f, 0.0f, 0.0f);
+    sceneDesc.gravity = PxVec3(0.0f, -9.81f, 0.0f);
+    // sceneDesc.gravity = PxVec3(0.0f, 0.0f, 0.0f);
     cpuDispatcher = PxDefaultCpuDispatcherCreate(numThreads);
     sceneDesc.cpuDispatcher = cpuDispatcher;
     sceneDesc.filterShader = PxDefaultSimulationFilterShader;
 
     // enable CUDA
+
     /*
+    PxCudaContextManagerDesc cudaContextManagerDesc;
+    cudaContextManager = PxCreateCudaContextManager(*foundation, cudaContextManagerDesc, PxGetProfilerCallback());
     sceneDesc.cudaContextManager = cudaContextManager;
     sceneDesc.flags |= PxSceneFlag::eENABLE_GPU_DYNAMICS;
     sceneDesc.broadPhaseType = PxBroadPhaseType::eGPU;
@@ -50,8 +47,8 @@ void PhysicsWorld::init(PxFoundation* foundation, uint32_t numThreads = 16) {
     defaultMaterial = physics->createMaterial(0.5f, 0.5f, 0.6f);
 
     // create ground
-    // PxRigidStatic* groundPlane = PxCreatePlane(*physics, PxPlane(0,1,0,0), *defaultMaterial);
-    // scene->addActor(*groundPlane);
+    PxRigidStatic* groundPlane = PxCreatePlane(*physics, PxPlane(0,1,0,0), *defaultMaterial);
+    scene->addActor(*groundPlane);
 }
 
 bool PhysicsWorld::advance(float dt) {
@@ -71,6 +68,6 @@ bool PhysicsWorld::fetchResults() {
 }
 
 void PhysicsWorld::release() {
-    // cooking->release();
+    cooking->release();
     physics->release();
 }

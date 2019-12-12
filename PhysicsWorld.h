@@ -27,6 +27,14 @@ struct PhysicsWorld {
 
     void release();
 
+    glm::vec3 getGravity() {
+        return PxToGLM(scene->getGravity());
+    }
+
+    void setGravity(glm::vec3 g) {
+        scene->setGravity(GLMToPx(g));
+    }
+
     const PxRenderBuffer& getRenderBuffer() const {
         return scene->getRenderBuffer();
     }
@@ -34,7 +42,7 @@ struct PhysicsWorld {
     PxFoundation* foundation;
     PxPhysics* physics;
     // PxCudaContextManager* cudaContextManager;
-    // PxCooking* cooking;
+    PxCooking* cooking;
     PxCpuDispatcher* cpuDispatcher;
     PxScene* scene;
     PxMaterial* defaultMaterial;
