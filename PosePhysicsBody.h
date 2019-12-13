@@ -29,15 +29,7 @@ float computeSwingAngle(float swingYZ, float swingW)
     return 4.0f * PxAtan2(swingYZ, 1.0f + swingW);	// tan (t/2) = sin(t)/(1+cos t), so this is the quarter angle
 }
 
-PxQuat getTwistOrSwing(PxQuat q, bool needTwist)
-{
-    // PT: TODO: we don't need to compute both quats here
-    PxQuat swing, twist;
-    separateSwingTwist(q, swing, twist);
-    return needTwist ? twist : swing;
-}
-
-PxVec3 getTwistSwingAngles(PxQuat q)
+PxVec3 quatToTwistSwing(PxQuat q)
 {
     PxQuat swing, twist;
     separateSwingTwist(q, swing, twist);
@@ -54,6 +46,12 @@ PxVec3 getTwistSwingAngles(PxQuat q)
     v.z = computeSwingAngle(swing.z, swing.w);
     PX_ASSERT(v.z > -PxPi && v.z <= PxPi);			// since |y| < w+1, the atan magnitude is < PI/4
     return v;
+}
+
+// TODO
+PxQuat twistSwingToQuat(PxVec3 v)
+{
+    return PxQuat(PxIdentity);
 }
 
 struct PosePhysicsBody {
@@ -159,7 +157,7 @@ struct PosePhysicsBody {
         for (uint32_t i = 1; i < pose.size(); i++) {
             glm::quat q = pose.q[i];
 
-            glm::vec3 v = PxToGLM(getTwistSwingAngles(GLMToPx(pose.q[i])));
+            glm::vec3 v = PxToGLM(quatToTwistSwing(GLMToPx(pose.q[i])));
             uint32_t li = nodeToLink[i]->getLinkIndex();
             cache->jointPosition[dofStarts[li]] = -v.x;
             cache->jointPosition[dofStarts[li] + 1] = -v.y;
@@ -238,6 +236,5 @@ struct PosePhysicsBody {
             articulation->applyCache(*cache, PxArticulationCache::eROOT | PxArticulationCache::ePOSITION);
         }
     }
-
 };
 #endif //ANIMATION_PROJECT_POSEPHYSICSBODY_H

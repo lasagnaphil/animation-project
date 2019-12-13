@@ -19,7 +19,8 @@ void PhysicsWorld::init(PxFoundation* foundation, uint32_t numThreads = 16) {
         exit(EXIT_FAILURE);
     }
 
-    cooking = PxCreateCooking(PX_PHYSICS_VERSION, *foundation, PxCookingParams(scale));
+    PxCookingParams params(scale);
+    cooking = PxCreateCooking(PX_PHYSICS_VERSION, *foundation, params);
     if (!cooking) {
         std::cerr << "PxCreateCooking failed!" << std::endl;
         exit(EXIT_FAILURE);
@@ -28,7 +29,6 @@ void PhysicsWorld::init(PxFoundation* foundation, uint32_t numThreads = 16) {
 
     PxSceneDesc sceneDesc(physics->getTolerancesScale());
     sceneDesc.gravity = PxVec3(0.0f, -9.81f, 0.0f);
-    // sceneDesc.gravity = PxVec3(0.0f, 0.0f, 0.0f);
     cpuDispatcher = PxDefaultCpuDispatcherCreate(numThreads);
     sceneDesc.cpuDispatcher = cpuDispatcher;
     sceneDesc.filterShader = PxDefaultSimulationFilterShader;
