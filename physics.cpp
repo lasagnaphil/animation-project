@@ -295,9 +295,9 @@ public:
             ImGui::DragFloat3((poseTree[0].name + " pos").c_str(), (float*)&currentPose.v, 0.01f);
             for (uint32_t i = 0; i < poseTree.numJoints; i++) {
                 auto& node = poseTree[i];
-                glm::vec3 v = glmx::quatToEuler(currentPose.q[i], EulOrdZYXs);
+                PxVec3 v = quatToTwistSwing(GLMToPx(currentPose.q[i]));
                 if (ImGui::DragFloat3(node.name.c_str(), (float*)&v, 0.01f)) {
-                    currentPose.q[i] = glmx::eulerToQuat(v, EulOrdZYXs);
+                    currentPose.q[i] = PxToGLM(twistSwingToQuat(v));
                 }
             }
             ImGui::TreePop();

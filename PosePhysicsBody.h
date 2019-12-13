@@ -36,9 +36,9 @@ PxVec3 quatToTwistSwing(PxQuat q)
 
     PxVec3 v;
     v.x = twist.getAngle();
-    if(twist.x < 0.0f)
+    if (twist.x < 0.0f)
         v.x = -v.x;
-    if(swing.w < 0.0f)		// choose the shortest rotation
+    if (swing.w < 0.0f)		// choose the shortest rotation
         swing = -swing;
 
     v.y = computeSwingAngle(swing.y, swing.w);
@@ -48,10 +48,30 @@ PxVec3 quatToTwistSwing(PxQuat q)
     return v;
 }
 
-// TODO
 PxQuat twistSwingToQuat(PxVec3 v)
 {
-    return PxQuat(PxIdentity);
+    PX_ASSERT(v.y > -PxPi && v.y <= PxPi);				// since |y| < w+1, the atan magnitude is < PI/4
+    PX_ASSERT(v.z > -PxPi && v.z <= PxPi);			// since |y| < w+1, the atan magnitude is < PI/4
+    PxQuat swing, twist;
+
+    float ty = PxTan(v.y / 4);
+    float tz = PxTan(v.z / 4);
+
+    swing.w = (1 - ty*ty - tz*tz) / (1 + ty*ty + tz*tz);
+    swing.x = 0;
+    swing.y = (1+swing.w) * ty;
+    swing.z = (1+swing.w) * tz;
+    if (swing.w < 0.0f)
+        swing = -swing;
+
+    twist.w = PxCos(v.x / 2);
+    twist.x = PxSin(v.x / 2);
+    twist.y = 0;
+    twist.z = 0;
+    if (twist.x < 0.0f)
+        twist = -twist;
+
+    return swing * twist;
 }
 
 struct PosePhysicsBody {
@@ -110,6 +130,11 @@ struct PosePhysicsBody {
                 pxJoint->setMotion(PxArticulationAxis::eTWIST, PxArticulationMotion::eFREE);
                 pxJoint->setMotion(PxArticulationAxis::eSWING1, PxArticulationMotion::eFREE);
                 pxJoint->setMotion(PxArticulationAxis::eSWING2, PxArticulationMotion::eFREE);
+                /*
+                pxJoint->setLimit(PxArticulationAxis::eTWIST, -M_PI/2, M_PI/2);
+                pxJoint->setLimit(PxArticulationAxis::eSWING1, -0.95f * M_PI, 0.95f * M_PI);
+                pxJoint->setLimit(PxArticulationAxis::eSWING2, -0.95f * M_PI, 0.95f * M_PI);
+                */
             }
 
             if (!joint.childIdx.empty()) {
@@ -157,11 +182,11 @@ struct PosePhysicsBody {
         for (uint32_t i = 1; i < pose.size(); i++) {
             glm::quat q = pose.q[i];
 
-            glm::vec3 v = PxToGLM(quatToTwistSwing(GLMToPx(pose.q[i])));
+            PxVec3 v = quatToTwistSwing(GLMToPx(pose.q[i]));
             uint32_t li = nodeToLink[i]->getLinkIndex();
-            cache->jointPosition[dofStarts[li]] = -v.x;
-            cache->jointPosition[dofStarts[li] + 1] = -v.y;
-            cache->jointPosition[dofStarts[li] + 2] = -v.z;
+            cache->jointPosition[dofStarts[li]] = v.x;
+            cache->jointPosition[dofStarts[li] + 1] = v.y;
+            cache->jointPosition[dofStarts[li] + 2] = v.z;
         }
         if (setVelToZero) {
             PxMemZero(cache->jointVelocity, sizeof(PxReal) * dofCount);
@@ -179,11 +204,11 @@ struct PosePhysicsBody {
 
         for (uint32_t i = 1; i < pose.size(); i++) {
             uint32_t li = nodeToLink[i]->getLinkIndex();
-            glm::vec3 v;
-            v.z = cache->jointPosition[dofStarts[li]];
+            PxVec3 v;
+            v.x = cache->jointPosition[dofStarts[li]];
             v.y = cache->jointPosition[dofStarts[li] + 1];
-            v.x = cache->jointPosition[dofStarts[li] + 2];
-            pose.q[i] = glmx::eulerToQuat(-v, EulOrdZYXs);
+            v.z = cache->jointPosition[dofStarts[li] + 2];
+            pose.q[i] = PxToGLM(twistSwingToQuat(v));
         }
     }
 
@@ -218,16 +243,16 @@ struct PosePhysicsBody {
 
         for (auto [bvhIdx, link] : nodeToLink) {
             uint32_t li = link->getLinkIndex();
-            glm::vec3 euler;
-            euler.z = cache->jointPosition[dofStarts[li]];
-            euler.y = cache->jointPosition[dofStarts[li] + 1];
-            euler.x = cache->jointPosition[dofStarts[li] + 2];
+            glm::vec3 v;
+            v.x = cache->jointPosition[dofStarts[li]];
+            v.y = cache->jointPosition[dofStarts[li] + 1];
+            v.z = cache->jointPosition[dofStarts[li] + 2];
             float pi = glm::pi<float>();
-            bool linkEdited = ImGui::DragFloat3(link->getName(), (float*)&euler, 0.01f);
+            bool linkEdited = ImGui::DragFloat3(link->getName(), (float*)&v, 0.01f);
             if (linkEdited) {
-                cache->jointPosition[dofStarts[li]] = euler.z;
-                cache->jointPosition[dofStarts[li] + 1] = euler.y;
-                cache->jointPosition[dofStarts[li] + 2] = euler.x;
+                cache->jointPosition[dofStarts[li]] = v.z;
+                cache->jointPosition[dofStarts[li] + 1] = v.y;
+                cache->jointPosition[dofStarts[li] + 2] = v.x;
             }
             edited |= linkEdited;
         }
