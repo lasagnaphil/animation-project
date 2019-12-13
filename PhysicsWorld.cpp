@@ -29,7 +29,7 @@ void PhysicsWorld::init(PxFoundation* foundation, uint32_t numThreads = 16) {
 
     PxSceneDesc sceneDesc(physics->getTolerancesScale());
     sceneDesc.gravity = PxVec3(0.0f, -9.81f, 0.0f);
-    sceneDesc.gravity = PxVec3(0.0f, 0.0f, 0.0f);
+    //sceneDesc.gravity = PxVec3(0.0f, 0.0f, 0.0f);
     cpuDispatcher = PxDefaultCpuDispatcherCreate(numThreads);
     sceneDesc.cpuDispatcher = cpuDispatcher;
     sceneDesc.filterShader = PxDefaultSimulationFilterShader;
@@ -48,8 +48,8 @@ void PhysicsWorld::init(PxFoundation* foundation, uint32_t numThreads = 16) {
     defaultMaterial = physics->createMaterial(0.5f, 0.5f, 0.6f);
 
     // create ground
-    // PxRigidStatic* groundPlane = PxCreatePlane(*physics, PxPlane(0,1,0,0), *defaultMaterial);
-    // scene->addActor(*groundPlane);
+    PxRigidStatic* groundPlane = PxCreatePlane(*physics, PxPlane(0,1,0,0), *defaultMaterial);
+    scene->addActor(*groundPlane);
 }
 
 bool PhysicsWorld::advance(float dt) {
