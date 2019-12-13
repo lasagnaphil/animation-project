@@ -25,7 +25,7 @@ sudo apt-get install -y libsdl2-dev
 ```
 git clone https://github.com/lasagnaphil/PhysX
 cd PhysX/physx
-./generate_projects.sh
+./generate_projects.sh ( Now plz use option 3 : clang )
 cd compiler/linux-debug && make -j8 && cd ../..
 cd compiler/linux-release && make -j8 && cd ../../
 ```

@@ -7,6 +7,8 @@
 
 #include <tinyxml2.h>
 
+#include <unordered_map>
+
 glm::vec3 stringToVec3(const char* str) {
     glm::vec3 v;
     std::sscanf(str, "%f %f %f", &v.x, &v.y, &v.z);
