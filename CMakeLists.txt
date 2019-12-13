@@ -1,16 +1,29 @@
 cmake_minimum_required(VERSION 3.15)
 project(animation_project)
 
+set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake_modules)
 set(CMAKE_CXX_STANDARD 17)
 
 add_subdirectory(gengine)
 
-add_executable(animation_project main.cpp)
-target_include_directories(animation_project PUBLIC gengine)
+find_package(Threads REQUIRED)
+find_package(PhysX REQUIRED)
+
+add_executable(animation_project main.cpp PhysicsWorld.cpp)
+target_include_directories(animation_project PUBLIC gengine ${PhysX_INCLUDE_DIR} ${PxShared_INCLUDE_DIR})
 target_link_libraries(animation_project gengine)
+target_link_libraries(animation_project debug ${PhysX_LIBRARIES_DEBUG})
+target_link_libraries(animation_project optimized ${PhysX_LIBRARIES_RELEASE})
 add_dependencies(animation_project copy_resource_folder)
 
 add_executable(data_driven_anim data-driven.cpp Box.cpp)
 target_include_directories(data_driven_anim PUBLIC gengine)
 target_link_libraries(data_driven_anim gengine)
 add_dependencies(data_driven_anim copy_resource_folder)
+
+add_executable(physics_test physics.cpp PhysicsWorld.cpp)
+target_include_directories(physics_test PUBLIC gengine ${PhysX_INCLUDE_DIR} ${PxShared_INCLUDE_DIR})
+target_link_libraries(physics_test gengine)
+target_link_libraries(physics_test debug ${PhysX_LIBRARIES_DEBUG})
+target_link_libraries(physics_test optimized ${PhysX_LIBRARIES_RELEASE})
+add_dependencies(physics_test copy_resource_folder)
