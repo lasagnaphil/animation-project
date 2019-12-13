@@ -65,14 +65,19 @@ public:
         world.init(pxFoundation, 1);
 
         // Prepare the ground
-
-        groundMat = PBRMaterial::quick(
+        ground.mesh = Mesh::makePlane(100.0f, 100.0f);
+        ground.material = PBRMaterial::quick(
                 "resources/textures/mossy-ground1-albedo.png",
                 "resources/textures/mossy-ground1-metal.png",
                 "resources/textures/mossy-ground1-roughness.png",
                 "resources/textures/mossy-ground1-ao.png");
-
-        groundMesh = Mesh::makePlane(100.0f, 100.0f);
+        auto collider = ground.mesh->generateCollider();
+        auto bodyOpt = PhysicsBody::fromMesh(world, collider, world.physics->createMaterial(0.5f, 0.5f, 0.6f));
+        if (!bodyOpt) {
+            fprintf(stderr, "PhysicsBody::fromMesh() failed to generate mesh.\n");
+            exit(EXIT_FAILURE);
+        }
+        ground.body = *bodyOpt;
 
         // Prepare the box
         if (enableBox) {
@@ -160,7 +165,7 @@ public:
         posePhysicsBodySkel = PosePhysicsBodySkel::fromFile("resources/humanoid_complex_edited.xml", poseTree);
         posePhysicsBody.init(world, poseTree, posePhysicsBodySkel);
         posePhysicsBody.setRoot(glmx::transform(glm::vec3(0.f, 0.9f, 0.f)));
-
+        
         pxDebugRenderer.init(world);
         pxDebugRenderer.setCamera(camera);
 
@@ -182,7 +187,7 @@ public:
             for (int i = 0; i < sphereCount; i++) {
                 spheres[i].body.setPosition(
                         glm::vec3((i % 10) * 2 * (sphereRadius + sphereDist),
-                                  sphereRadius,
+                                  sphereRadius + 1,
                                   (i / 10) * 2 * (sphereRadius + sphereDist)));
                 spheres[i].body.setLinearVelocity({});
                 spheres[i].body.setAngularVelocity({});
@@ -247,10 +252,11 @@ public:
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // pbRenderer.queueRender({groundMesh, groundMat, rootTransform->getWorldTransform()});
+        //pbRenderer.queueRender({groundMesh, groundMat, rootTransform->getWorldTransform()});
         renderMotionClip(pbRenderer, imRenderer, currentPose, poseTree, poseRenderBody);
         renderMotionClip(pbRenderer, imRenderer, convertedPose, poseTree, poseRenderBody2);
 
+        pbRenderer.queueRender({ground.mesh, ground.material, rootTransform->getWorldTransform()});
         if (enableBox) {
             pbRenderer.queueRender({box.mesh, box.material, glmx::mat4_cast(box.body.getTransform())});
         }
@@ -259,9 +265,7 @@ public:
                 pbRenderer.queueRender({sphere.mesh, sphere.material, glm::translate(sphere.body.getTransform().v)});
             }
         }
-        // render ground
-        pbRenderer.queueRender({groundMesh, groundMat, glm::translate(glm::vec3())});
-
+        
         pbRenderer.render();
 
         imRenderer.drawPoint(pbRenderer.pointLights[0].position, colors::Yellow, 4.0f, true);
@@ -340,16 +344,17 @@ private:
 
     PhysicsObject box;
     std::vector<PhysicsObject> spheres;
+    PhysicsObject ground;
 
     bool enableRagdoll = false;
     bool enableManipulation = false;
     bool enablePhysics = true;
 
-    bool enableBox = true;
-    bool enableSpheres = false;
+    bool enableBox = false;
+    bool enableSpheres = true;
 
-    Ref<PBRMaterial> groundMat;
-    Ref<Mesh> groundMesh;
+    // Ref<PBRMaterial> groundMat;
+    // Ref<Mesh> groundMesh;
 };
 
 int main(int argc, char** argv) {
