@@ -19,6 +19,8 @@ struct PhysicsObject {
     Ref<PBRMaterial> material;
 };
 
+
+
 class MyApp : public App {
 public:
     MyApp() : App(false, AppRenderSettings::PBR) {}
@@ -73,22 +75,22 @@ public:
                 "resources/textures/mossy-ground1-ao.png");
         
         // Prepare the box
-        // box.mesh = Mesh::fromOBJFile("resources/box_edited.obj");
-        // auto bodyOpt = PhysicsBody::fromMesh(world, box.mesh, world.physics->createMaterial(0.5f, 0.5f, 0.6f));
-        /*
-        if (!bodyOpt) {
-            fprintf(stderr, "PhysicsBody::fromMesh() failed to generate mesh.\n");
-            exit(EXIT_FAILURE);
-        }
-        box.body = *bodyOpt;
+        // glm::vec3 boxSize = {0.5f, 0.5f, 0.5f};
+        // box.mesh = Mesh::makeCube(boxSize);
+        box.mesh = Mesh::fromOBJFile("resources/box.obj");
         box.material = Resources::make<PBRMaterial>();
         box.material->texAlbedo = Texture::fromSingleColor(glm::vec3(0.4f));
         box.material->texAO = Texture::fromSingleColor(glm::vec3(1.0f, 0.0f, 0.0f));
         box.material->texMetallic = Texture::fromSingleColor(glm::vec3(0.5f, 0.0f, 0.0f));
         box.material->texRoughness = Texture::fromSingleColor(glm::vec3(0.5f, 0.0f, 0.0f));
-        box.body.setTransform(
-                glmx::transform(glm::vec3(-1.0f, 0.0f, 1.0f), glm::angleAxis((float)-M_PI/2, glm::vec3(1, 0, 0))));
-         */
+        box.mesh->indices.clear(); // We don't need the index buffer
+        auto collider = box.mesh->generateCollider();
+        auto bodyOpt = PhysicsBody::fromMesh(world, collider, world.physics->createMaterial(0.5f, 0.5f, 0.6f));
+        if (!bodyOpt) {
+            fprintf(stderr, "PhysicsBody::fromMesh() failed to generate mesh.\n");
+            exit(EXIT_FAILURE);
+        }
+        box.body = *bodyOpt;
 
         // Prepare the spheres
         glm::vec3 colorList[] = {
@@ -176,6 +178,11 @@ public:
             spheres[i].body.setLinearVelocity({});
             spheres[i].body.setAngularVelocity({});
         }
+
+        // box
+        box.body.setPosition({ 1, 1, 1 });
+        box.body.setLinearVelocity({});
+        box.body.setAngularVelocity({});
     }
 
     void processInput(SDL_Event &event) override {
@@ -238,7 +245,7 @@ public:
         renderMotionClip(pbRenderer, imRenderer, currentPose, poseTree, poseRenderBody);
         renderMotionClip(pbRenderer, imRenderer, convertedPose, poseTree, poseRenderBody2);
 
-        // pbRenderer.queueRender({box.mesh, box.material, glmx::mat4_cast(box.body.getTransform())});
+        pbRenderer.queueRender({box.mesh, box.material, glmx::mat4_cast(box.body.getTransform())});
         for (auto& sphere : spheres) {
             pbRenderer.queueRender({sphere.mesh, sphere.material, glm::translate(sphere.body.getTransform().v)});
         }
