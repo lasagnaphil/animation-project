@@ -80,8 +80,8 @@ public:
         debugBodyMat2->texDiffuse = {};
         debugBodyMat2->texSpecular = {};
 
-        auto idleBVH = MotionClipData::loadFromFile("resources/retargetted/115-1(pick_up_waist).bvh", 0.1f);
-        //auto walkBVH = MotionClipData::loadFromFile("../resources/motion/111_36.bvh", 0.1f);
+        auto idleBVH = MotionClipData::loadFromFile("resources/retargetted/111-36(pregnant_carry).bvh", 0.1f);
+        auto walkBVH = MotionClipData::loadFromFile("resources/retargetted/111-36(pregnant_carry).bvh", 0.1f);
 
         poseTree = idleBVH.poseTree;
         currentPose = glmx::pose::empty(poseTree.numJoints);
@@ -103,7 +103,8 @@ public:
         // auto runTurnLeftBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_51_run, 90-degree left turn.bvh", 0.01f);
         // auto runTurnRightBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_53_run, 90-degree right turn.bvh", 0.01f);
 
-        auto idlePoses = std::vector<glmx::pose>(30, idleBVH.poseStates[1]);
+        auto idlePoses = std::vector<glmx::pose>(30, idleBVH.poseStates[0]);
+        auto walkPoses = nonstd::span<glmx::pose>(walkBVH.poseStates.data() + 230, 72);
         //auto walkPoses = nonstd::span<glmx::pose>(walkBVH.poseStates.data() + 1010, 300);
         // auto walkTurnLeftPoses = nonstd::span<glmx::pose>(walkTurnLeftBVH.poseStates.data() + 40, walkTurnLeftBVH.poseStates.size() - 60);
         // auto walkTurnRightPoses = nonstd::span<glmx::pose>(walkTurnRightBVH.poseStates.data() + 40, walkTurnRightBVH.poseStates.size() - 60);
@@ -112,7 +113,7 @@ public:
         // auto runTurnRightPoses = nonstd::span<glmx::pose>(runTurnRightBVH.poseStates.data() + 10, runTurnRightBVH.poseStates.size() - 20);
 
         auto idleAnim = animFSM.addAnimation("idle", nonstd::span<glmx::pose>(idlePoses.data(), idlePoses.size()));
-        //auto walkAnim = animFSM.addAnimation("walk", walkPoses, 60);
+        auto walkAnim = animFSM.addAnimation("walk", walkPoses, 30);
         // auto walkVeerLeftAnim = animFSM.addAnimation("walk_veer_left", walkVeerLeftBVH.poseStates);
         // auto walkVeerRightAnim = animFSM.addAnimation("walk_veer_right", walkVeerRightBVH.poseStates);
         // auto walkTurnLeftAnim = animFSM.addAnimation("walk_turn_left", walkTurnLeftPoses);
@@ -125,7 +126,7 @@ public:
         // auto jumpAnim = animFSM.addAnimation("jump", jumpBVH.poseStates);
         // auto forwardJumpAnim = animFSM.addAnimation("forward_jump", forwardJumpBVH.poseStates);
 
-        for (Ref<Animation> anim : { idleAnim })//, walkAnim })
+        for (Ref<Animation> anim : { idleAnim, walkAnim })
         // , walkAnim, walkVeerLeftAnim, walkVeerRightAnim,
         //                             walkTurnLeftAnim, walkTurnRightAnim,
         //                             runAnim, runVeerLeftAnim, runVeerRightAnim, runTurnLeftAnim, runTurnRightAnim,
@@ -136,7 +137,7 @@ public:
         }
 
         auto idleState = animFSM.addState("idle", idleAnim);
-        //auto walkState = animFSM.addState("walk", walkAnim);
+        auto walkState = animFSM.addState("walk", walkAnim);
         // auto runState = animFSM.addState("run", runAnim);
         // auto jumpState = animFSM.addState("jump", jumpAnim);
         // auto forwardJumpState = animFSM.addState("forward_jump", forwardJumpAnim);
@@ -164,13 +165,13 @@ public:
 
         auto repeatIdleTrans = animFSM.addTransition("repeat_idle", idleState, idleState, 0.0f, 0.0f, 0.0f);
 
-        // auto repeatWalkingTrans = animFSM.addTransition("repeat_walking", walkState, walkState, 1.0f, 1.0f, 1.0f);
+        auto repeatWalkingTrans = animFSM.addTransition("repeat_walking", walkState, walkState, 1.0f, 1.0f, 1.0f);
 
-        // auto startWalkingTrans = animFSM.addTransition("start_walking", idleState, walkState, 1.0f, 1.0f, 1.0f);
-        // animFSM.setTransitionCondition(startWalkingTrans, "is_walking", true);
+        auto startWalkingTrans = animFSM.addTransition("start_walking", idleState, walkState, 1.0f, 1.0f, 1.0f);
+        animFSM.setTransitionCondition(startWalkingTrans, "is_walking", true);
 
-        // auto stopWalkingTrans = animFSM.addTransition("stop_walking", walkState, idleState, 1.0f, 1.0f, 1.0f);
-        // animFSM.setTransitionCondition(stopWalkingTrans, "is_walking", false);
+        auto stopWalkingTrans = animFSM.addTransition("stop_walking", walkState, idleState, 1.0f, 1.0f, 1.0f);
+        animFSM.setTransitionCondition(stopWalkingTrans, "is_walking", false);
 
         // auto startWalkVeerLeftTrans = animFSM.addTransition("start_walk_veer_left", walkState, walkVeerLeftState,
         //         0.2f, 0.2f, 0.2f);
