@@ -80,8 +80,7 @@ public:
         debugBodyMat2->texDiffuse = {};
         debugBodyMat2->texSpecular = {};
 
-        auto idleBVH = MotionClipData::loadFromFile("resources/retargetted/111-36(pregnant_carry).bvh", 0.1f);
-        //auto idleBVH = MotionClipData::loadFromFile("../resources/motion/113_26.bvh", 0.1f);
+        auto idleBVH = MotionClipData::loadFromFile("resources/retargetted/115-1(pick_up_waist).bvh", 0.1f);
         //auto walkBVH = MotionClipData::loadFromFile("../resources/motion/111_36.bvh", 0.1f);
 
         poseTree = idleBVH.poseTree;
@@ -104,8 +103,7 @@ public:
         // auto runTurnLeftBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_51_run, 90-degree left turn.bvh", 0.01f);
         // auto runTurnRightBVH = MotionClipData::loadFromFile("resources/motion/cmu/16_53_run, 90-degree right turn.bvh", 0.01f);
 
-        auto idlePoses = nonstd::span<glmx::pose>(idleBVH.poseStates.data(), idleBVH.poseStates.size());
-        //auto idlePoses = std::vector<glmx::pose>(30, idleBVH.poseStates[20]);
+        auto idlePoses = std::vector<glmx::pose>(30, idleBVH.poseStates[1]);
         //auto walkPoses = nonstd::span<glmx::pose>(walkBVH.poseStates.data() + 1010, 300);
         // auto walkTurnLeftPoses = nonstd::span<glmx::pose>(walkTurnLeftBVH.poseStates.data() + 40, walkTurnLeftBVH.poseStates.size() - 60);
         // auto walkTurnRightPoses = nonstd::span<glmx::pose>(walkTurnRightBVH.poseStates.data() + 40, walkTurnRightBVH.poseStates.size() - 60);
