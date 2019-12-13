@@ -75,49 +75,53 @@ public:
         Ref<Mesh> groundMesh = Mesh::makePlane(100.0f, 100.0f);
 
         // Prepare the box
-        box.mesh = Mesh::fromOBJFile("resources/box_edited.obj");
-        auto bodyOpt = PhysicsBody::fromMesh(world, box.mesh, world.physics->createMaterial(0.5f, 0.5f, 0.6f));
-        /*
-        if (!bodyOpt) {
-            fprintf(stderr, "PhysicsBody::fromMesh() failed to generate mesh.\n");
-            exit(EXIT_FAILURE);
+        if (enableBox) {
+            glm::vec3 boxSize = {0.5f, 0.5f, 0.5f};
+            // box.mesh = Mesh::makeCube(boxSize);
+            box.mesh = Mesh::fromOBJFile("resources/box.obj");
+            box.material = Resources::make<PBRMaterial>();
+            box.material->texAlbedo = Texture::fromSingleColor(glm::vec3(0.4f));
+            box.material->texAO = Texture::fromSingleColor(glm::vec3(1.0f, 0.0f, 0.0f));
+            box.material->texMetallic = Texture::fromSingleColor(glm::vec3(0.5f, 0.0f, 0.0f));
+            box.material->texRoughness = Texture::fromSingleColor(glm::vec3(0.5f, 0.0f, 0.0f));
+            box.mesh->indices.clear(); // We don't need the index buffer
+            auto collider = box.mesh->generateCollider();
+            auto bodyOpt = PhysicsBody::fromMesh(world, collider, world.physics->createMaterial(0.5f, 0.5f, 0.6f));
+            if (!bodyOpt) {
+                fprintf(stderr, "PhysicsBody::fromMesh() failed to generate mesh.\n");
+                exit(EXIT_FAILURE);
+            }
+            box.body = *bodyOpt;
+
         }
-        box.body = *bodyOpt;
-        box.material = Resources::make<PBRMaterial>();
-        box.material->texAlbedo = Texture::fromSingleColor(glm::vec3(0.4f));
-        box.material->texAO = Texture::fromSingleColor(glm::vec3(1.0f, 0.0f, 0.0f));
-        box.material->texMetallic = Texture::fromSingleColor(glm::vec3(0.5f, 0.0f, 0.0f));
-        box.material->texRoughness = Texture::fromSingleColor(glm::vec3(0.5f, 0.0f, 0.0f));
-        box.body.setTransform(
-                glmx::transform(glm::vec3(-1.0f, 0.0f, 1.0f), glm::angleAxis((float)-M_PI/2, glm::vec3(1, 0, 0))));
-         */
+        if (enableSpheres) {
+            // Prepare the spheres
+            glm::vec3 colorList[] = {
+                    colors::Red, colors::Blue, colors::Green, colors::Black, colors::Yellow, colors::Cyan, colors::Pink,
+                    colors::White, colors::Magenta, colors::Gold
+            };
+            auto texAO = Texture::fromSingleColor({1.0f, 0.0f, 0.0f});
+            auto texMetallic = Texture::fromSingleColor({0.5f, 0.0f, 0.0f});
+            auto texRoughness = Texture::fromSingleColor({0.5f, 0.0f, 0.0f});
 
-        // Prepare the spheres
-        glm::vec3 colorList[] = {
-                colors::Red, colors::Blue, colors::Green, colors::Black, colors::Yellow, colors::Cyan, colors::Pink,
-                colors::White, colors::Magenta, colors::Gold
-        };
-        auto texAO = Texture::fromSingleColor({1.0f, 0.0f, 0.0f});
-        auto texMetallic = Texture::fromSingleColor({0.5f, 0.0f, 0.0f});
-        auto texRoughness = Texture::fromSingleColor({0.5f, 0.0f, 0.0f});
+            std::vector<Ref<PBRMaterial>> sphereMats(sphereColorsCount);
+            for (int i = 0; i < sphereColorsCount; i++) {
+                sphereMats[i] = Resources::make<PBRMaterial>();
+                sphereMats[i]->texAlbedo = Texture::fromSingleColor(colorList[i]);
+                sphereMats[i]->texAO = texAO;
+                sphereMats[i]->texMetallic = texMetallic;
+                sphereMats[i]->texRoughness = texRoughness;
+            }
 
-        std::vector<Ref<PBRMaterial>> sphereMats(sphereColorsCount);
-        for (int i = 0; i < sphereColorsCount; i++) {
-            sphereMats[i] = Resources::make<PBRMaterial>();
-            sphereMats[i]->texAlbedo = Texture::fromSingleColor(colorList[i]);
-            sphereMats[i]->texAO = texAO;
-            sphereMats[i]->texMetallic = texMetallic;
-            sphereMats[i]->texRoughness = texRoughness;
-        }
+            Ref<Mesh> sphereMesh = Mesh::makeSphere(sphereRadius);
 
-        Ref<Mesh> sphereMesh = Mesh::makeSphere(sphereRadius);
+            spheres.resize(sphereCount);
+            for (int i = 0; i < sphereCount; i++) {
+                spheres[i].body = PhysicsBody::sphere(world, world.physics->createMaterial(0.5f, 0.5f, 0.6f), {}, sphereRadius);
+                spheres[i].mesh = sphereMesh;
+                spheres[i].material = sphereMats[i % sphereColorsCount];
 
-        spheres.resize(sphereCount);
-        for (int i = 0; i < sphereCount; i++) {
-            spheres[i].body = PhysicsBody::sphere(world, world.physics->createMaterial(0.5f, 0.5f, 0.6f), {}, sphereRadius);
-            spheres[i].mesh = sphereMesh;
-            spheres[i].material = sphereMats[i % sphereColorsCount];
-
+            }
         }
 
         // Prepare motion clip
@@ -156,7 +160,6 @@ public:
         posePhysicsBodySkel = PosePhysicsBodySkel::fromFile("resources/humanoid_complex_edited.xml", poseTree);
         posePhysicsBody.init(world, poseTree, posePhysicsBodySkel);
         posePhysicsBody.setRoot(glmx::transform(glm::vec3(0.f, 0.9f, 0.f)));
-        posePhysicsBody.putToSleep();
 
         pxDebugRenderer.init(world);
         pxDebugRenderer.setCamera(camera);
@@ -170,13 +173,20 @@ public:
         currentPose = motionClipPlayer.getPoseState();
         posePhysicsBody.setPose(currentPose, poseTree);
 
-        for (int i = 0; i < sphereCount; i++) {
-            spheres[i].body.setPosition(
-                glm::vec3((i % 10) * 2 * (sphereRadius + sphereDist),
-                          sphereRadius,
-                          (i / 10) * 2 * (sphereRadius + sphereDist)));
-            spheres[i].body.setLinearVelocity({});
-            spheres[i].body.setAngularVelocity({});
+        if (enableBox) {
+            box.body.setTransform(
+                    glmx::transform(glm::vec3(0.0f, 0.0f, 0.0f), glm::angleAxis((float)-M_PI/2, glm::vec3(1, 0, 0))));
+        }
+
+        if (enableSpheres) {
+            for (int i = 0; i < sphereCount; i++) {
+                spheres[i].body.setPosition(
+                        glm::vec3((i % 10) * 2 * (sphereRadius + sphereDist),
+                                  sphereRadius,
+                                  (i / 10) * 2 * (sphereRadius + sphereDist)));
+                spheres[i].body.setLinearVelocity({});
+                spheres[i].body.setAngularVelocity({});
+            }
         }
     }
 
@@ -219,13 +229,14 @@ public:
             else {
                 currentPose = motionClipPlayer.getPoseState();
                 posePhysicsBody.setPose(currentPose, poseTree, true);
-                // posePhysicsBody.getPose(convertedPose, poseTree);
 
                 /*
                 bool advanced = world.advance(physicsDt);
                 if (advanced) {
                     world.fetchResults();
                 }
+
+                posePhysicsBody.getPose(convertedPose, poseTree);
                  */
             }
         }
@@ -240,9 +251,13 @@ public:
         renderMotionClip(pbRenderer, imRenderer, currentPose, poseTree, poseRenderBody);
         renderMotionClip(pbRenderer, imRenderer, convertedPose, poseTree, poseRenderBody2);
 
-        // pbRenderer.queueRender({box.mesh, box.material, glmx::mat4_cast(box.body.getTransform())});
-        for (auto& sphere : spheres) {
-            pbRenderer.queueRender({sphere.mesh, sphere.material, glm::translate(sphere.body.getTransform().v)});
+        if (enableBox) {
+            pbRenderer.queueRender({box.mesh, box.material, glmx::mat4_cast(box.body.getTransform())});
+        }
+        if (enableSpheres) {
+            for (auto& sphere : spheres) {
+                pbRenderer.queueRender({sphere.mesh, sphere.material, glm::translate(sphere.body.getTransform().v)});
+            }
         }
         pbRenderer.render();
 
@@ -327,6 +342,9 @@ private:
     bool enableRagdoll = false;
     bool enableManipulation = false;
     bool enablePhysics = true;
+
+    bool enableBox = true;
+    bool enableSpheres = false;
 };
 
 int main(int argc, char** argv) {

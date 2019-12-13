@@ -52,7 +52,7 @@ struct PhysicsBody {
     }
 
     static std::optional<PhysicsBody> fromMesh(const PhysicsWorld& world,
-                                               Ref<Mesh> mesh,
+                                               const MeshCollider& mesh,
                                                PxMaterial* mat,
                                                glm::vec3 pos = glm::vec3(0.0f),
                                                glm::quat rot = glm::identity<glm::quat>(),
@@ -60,16 +60,15 @@ struct PhysicsBody {
 
         PhysicsBody meshBody;
         PxTriangleMeshDesc meshDesc;
-        if (mesh->indices.empty()) {
-            fprintf(stderr, "Error in MeshBody::fromMesh(): no support loading meshes without an index list\n");
-            return {};
-        }
-        meshDesc.points.count = mesh->vertices.size();
-        meshDesc.points.stride = sizeof(PxVec3);
-        meshDesc.points.data = mesh->vertices.data();
-        meshDesc.triangles.count = mesh->indices.size() / 3;
+        std::vector<glm::vec3> data;
+        meshDesc.points.count = mesh.points.size();
+        meshDesc.points.stride = sizeof(glm::vec3);
+        meshDesc.points.data = mesh.points.data();
+        meshDesc.triangles.count = mesh.indices.size() / 3;
         meshDesc.triangles.stride = 3*sizeof(PxU32);
-        meshDesc.triangles.data = mesh->indices.data();
+        meshDesc.triangles.data = mesh.indices.data();
+
+        assert(meshDesc.isValid());
 
         bool res = world.cooking->validateTriangleMesh(meshDesc);
         if (!res) {
