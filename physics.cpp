@@ -202,6 +202,9 @@ public:
         if (inputMgr->isKeyEntered(SDL_SCANCODE_SPACE)) {
             enablePhysics = !enablePhysics;
         }
+        if (inputMgr->isKeyEntered(SDL_SCANCODE_F1)) {
+            enableDebugRendering = !enableDebugRendering;
+        }
         motionClipPlayer.update(dt);
         while (time >= physicsDt) {
             time -= physicsDt;
@@ -268,7 +271,9 @@ public:
         imRenderer.drawAxisTriad(glm::mat4(1.0f), 0.1f, 1.0f, false);
         imRenderer.render();
 
-        pxDebugRenderer.render(world);
+        if (enableDebugRendering) {
+            pxDebugRenderer.render(world);
+        }
 
         motionClipPlayer.renderImGui();
 
@@ -338,6 +343,8 @@ private:
 
     PhysicsObject box;
     std::vector<PhysicsObject> spheres;
+
+    bool enableDebugRendering = true;
 
     bool enableRagdoll = false;
     bool enableManipulation = false;
