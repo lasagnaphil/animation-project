@@ -39,6 +39,19 @@ struct PhysicsBody {
                                 glm::quat rot = glm::identity<glm::quat>(),
                                 glm::vec3 scale = glm::vec3(1.0f)) {
         PhysicsBody prim;
+        
+        PxShape* floor = world.physics->createShape(PxBoxGeometry(x, y, thickness), *mat);
+        PxTransform fLocalTm(GLMToPx(glm::vec3{ x, y, thickness }), GLMToPx(rot));
+        floor->setLocalPose(fLocalTm);
+        defer{ floor->release(); };
+        floor->setFlag(PxShapeFlag::eVISUALIZATION, true);
+
+        PxShape* yUp = world.physics->createShape(PxBoxGeometry(x, y, thickness), *mat);
+        PxTransform fLocalTm(GLMToPx(glm::vec3{ x, y, thickness }), GLMToPx(rot));
+        floor->setLocalPose(fLocalTm);
+        defer{ floor->release(); };
+        floor->setFlag(PxShapeFlag::eVISUALIZATION, true);
+
         PxShape* floor = world.physics->createShape(PxBoxGeometry(x, y, thickness), *mat);
         PxTransform fLocalTm(GLMToPx(glm::vec3{ x, y, thickness }), GLMToPx(rot));
         floor->setLocalPose(fLocalTm);

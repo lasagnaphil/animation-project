@@ -78,6 +78,7 @@ public:
         // glm::vec3 boxSize = {0.5f, 0.5f, 0.5f};
         // box.mesh = Mesh::makeCube(boxSize);
         box.mesh = Mesh::fromOBJFile("resources/box.obj");
+
         box.material = Resources::make<PBRMaterial>();
         box.material->texAlbedo = Texture::fromSingleColor(glm::vec3(0.4f));
         box.material->texAO = Texture::fromSingleColor(glm::vec3(1.0f, 0.0f, 0.0f));
@@ -181,12 +182,8 @@ public:
         }
 
         // box
-        //box.body.setPosition({0.0f, 0.0f, 1.0f});
-        //box.body.setRotation(glm::angleAxis((float)-M_PI/2, glm::vec3(1, 0, 0)));
-        //box.body.setPosition({0.0f, 0.0f, 1.0f});
-        //box.body.setPosition({1.0f, 1.0f, 1.0f});
         box.body.setTransform(glmx::transform(
-            glm::vec3(0.0f, 0.0f, 1.0f), 
+            glm::vec3(0.0f, 0.0f, 0.0f), 
             glm::angleAxis((float)-M_PI/2, glm::vec3(1, 0, 0))));
         box.body.setLinearVelocity({});
         box.body.setAngularVelocity({});
