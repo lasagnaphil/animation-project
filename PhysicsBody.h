@@ -28,7 +28,7 @@ struct PhysicsBody {
         prim.body->attachShape(*shape);
         PxRigidBodyExt::updateMassAndInertia(*prim.body, 10.0f);
         world.scene->addActor(*prim.body);
-
+        
         return prim;
     }
 

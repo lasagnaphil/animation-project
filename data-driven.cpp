@@ -135,21 +135,6 @@ public:
 
         animFSM.setCurrentState(idleState);
 
-        // bvh = MotionClipData::loadFromFile("resources/127_25_1.bvh", 0.01f);
-        // if (!bvh.valid) {
-        //     fprintf(stderr, "BVH load failed!\n");
-        //     exit(EXIT_FAILURE);
-        // }
-        // poseTree = bvh.poseTree;
-        // // for (auto& poseState : bvh.poseStates) {
-        // //     poseState.v.y -= poseTree[0].offset.y;
-        // // }
-        // currentPose = bvh.poseStates[0];
-        // convertedPose = currentPose;
-
-        // motionClipPlayer = MotionClipPlayer(&bvh);
-        // motionClipPlayer.init();
-
         // Prepare the human body
 
         Ref<PBRMaterial> poseBodyMat = Resources::make<PBRMaterial>();
@@ -170,6 +155,9 @@ public:
         posePhysicsBody.init(world, poseTree, posePhysicsBodySkel);
         posePhysicsBody.setRoot(glmx::transform(glm::vec3(0.f, 0.9f, 0.f)));
         posePhysicsBody.putToSleep();
+        
+        // At first, character is in kinematic state.
+        world.scene->removeAggregate(*posePhysicsBody.aggregate);
 
         pxDebugRenderer.init(world);
         pxDebugRenderer.setCamera(camera);
@@ -178,11 +166,12 @@ public:
     }
 
     void reset() {
-        enableRagdoll = false;
-        //motionClipPlayer.setFrame(27);
-        //currentPose = motionClipPlayer.getPoseState();
+        kinematicChar = true;
+        enablePhysics = false;
+
+        world.scene->removeAggregate(*posePhysicsBody.aggregate);
+
         currentPose = animFSM.getCurrentPose();
-        posePhysicsBody.setPose(currentPose, poseTree);
 
         // Box and Spheres.
         glm::vec3 boxPos(0.0f, 1.0f, 5.0f);
@@ -221,41 +210,31 @@ public:
         if (inputMgr->isKeyEntered(SDL_SCANCODE_SPACE)) {
             enablePhysics = !enablePhysics;
         }
-        //motionClipPlayer.update(dt);
         while (time >= physicsDt) {
             time -= physicsDt;
 
-            if (enableManipulation) {
-                posePhysicsBody.setPose(currentPose, poseTree, true);
-                if (enablePhysics) {
+            if(kinematicChar) {
+                if (inputMgr->isKeyPressed(SDL_SCANCODE_UP))
+                    animFSM.setParam("is_walking", true);
+                else 
+                    animFSM.setParam("is_walking", false);
+                animFSM.update(dt);
+
+                if(enablePhysics) {
                     bool advanced = world.advance(physicsDt);
-                    if (advanced) {
+                    if (advanced) 
                         world.fetchResults();
-                    }
                 }
-                posePhysicsBody.getPose(convertedPose, poseTree);
-            }
-            else if (enableRagdoll) {
-                if (enablePhysics) {
-                    bool advanced = world.advance(physicsDt);
-                    if (advanced) {
-                        world.fetchResults();
-                    }
-                }
-                posePhysicsBody.getPose(currentPose, poseTree);
-                // posePhysicsBody.getPose(convertedPose, poseTree);
+
+                currentPose = animFSM.getCurrentPose();
             }
             else {
-                if (inputMgr->isKeyPressed(SDL_SCANCODE_UP)) {
-                    animFSM.setParam("is_walking", true);
+                if (enablePhysics) {
+                    bool advanced = world.advance(physicsDt);
+                    if (advanced)
+                        world.fetchResults();
                 }
-                else {
-                    animFSM.setParam("is_walking", false);
-                }
-                animFSM.update(dt);
-                currentPose = animFSM.getCurrentPose();
-                //currentPose = motionClipPlayer.getPoseState();
-                posePhysicsBody.setPose(currentPose, poseTree, true);
+                posePhysicsBody.getPose(currentPose, poseTree);
             }
         }
     }
@@ -302,18 +281,24 @@ public:
     void renderImGui() {
         ImGui::Begin("Character Data");
 
-        ImGui::Checkbox("Enable Manipulation", &enableManipulation);
-        if (!enableManipulation) {
-            if (ImGui::Button("Ragdoll")) {
-                enableRagdoll = true;
-                posePhysicsBody.getPose(convertedPose, poseTree);
+        if(kinematicChar) {
+            if(ImGui::Button("Enable Character Ragdoll")) {
+                kinematicChar = false;
+                world.scene->addAggregate(*posePhysicsBody.aggregate);
+                currentPose = animFSM.getCurrentPose();
                 posePhysicsBody.setPose(currentPose, poseTree);
             }
-            ImGui::SameLine();
-            if (ImGui::Button("Reset")) {
-                reset();
+        }
+        else {
+            if(ImGui::Button("Enable Character Control")) {
+                kinematicChar = true;
+                world.scene->removeAggregate(*posePhysicsBody.aggregate);
             }
         }
+
+        ImGui::Checkbox("Enable Physics", &enablePhysics);
+        if(ImGui::Button("Reset"))
+            reset();
 
         if (ImGui::TreeNode("Kinematics")) {
             ImGui::DragFloat3((poseTree[0].name + " pos").c_str(), (float*)&currentPose.v, 0.01f);
@@ -367,9 +352,8 @@ private:
     Ref<PBRMaterial> groundMat;
     Ref<Mesh> groundMesh;
 
-    bool enableRagdoll = false;
-    bool enableManipulation = false;
-    bool enablePhysics = true;
+    bool enablePhysics = false;
+    bool kinematicChar = true; // If it is true, character is in kinematic state.
 
     AnimStateMachine animFSM;
 };
