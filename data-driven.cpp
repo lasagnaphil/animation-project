@@ -84,13 +84,14 @@ public:
         box.material->texMetallic = Texture::fromSingleColor(glm::vec3(0.5f, 0.0f, 0.0f));
         box.material->texRoughness = Texture::fromSingleColor(glm::vec3(0.5f, 0.0f, 0.0f));
         box.mesh->indices.clear(); // We don't need the index buffer
-        auto collider = box.mesh->generateCollider();
-        auto bodyOpt = PhysicsBody::fromMesh(world, collider, world.physics->createMaterial(0.5f, 0.5f, 0.6f));
-        if (!bodyOpt) {
-            fprintf(stderr, "PhysicsBody::fromMesh() failed to generate mesh.\n");
-            exit(EXIT_FAILURE);
-        }
-        box.body = *bodyOpt;
+        // auto collider = box.mesh->generateCollider();
+        // auto bodyOpt = PhysicsBody::fromMesh(world, collider, world.physics->createMaterial(0.5f, 0.5f, 0.6f));
+        // if (!bodyOpt) {
+        //     fprintf(stderr, "PhysicsBody::fromMesh() failed to generate mesh.\n");
+        //     exit(EXIT_FAILURE);
+        // }
+        // box.body = *bodyOpt;
+        box.body = PhysicsBody::ourBox(world, 0.25f, 0.25f, 0.15f, 0.05f, world.physics->createMaterial(0.5f, 0.5f, 0.6f));
 
         // Prepare the spheres
         glm::vec3 colorList[] = {
@@ -180,7 +181,13 @@ public:
         }
 
         // box
-        box.body.setPosition({ 1, 1, 1 });
+        //box.body.setPosition({0.0f, 0.0f, 1.0f});
+        //box.body.setRotation(glm::angleAxis((float)-M_PI/2, glm::vec3(1, 0, 0)));
+        //box.body.setPosition({0.0f, 0.0f, 1.0f});
+        //box.body.setPosition({1.0f, 1.0f, 1.0f});
+        box.body.setTransform(glmx::transform(
+            glm::vec3(0.0f, 0.0f, 1.0f), 
+            glm::angleAxis((float)-M_PI/2, glm::vec3(1, 0, 0))));
         box.body.setLinearVelocity({});
         box.body.setAngularVelocity({});
     }

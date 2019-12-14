@@ -32,49 +32,26 @@ struct PhysicsBody {
         return prim;
     }
 
-    static PhysicsBody ourBox(PhysicsWorld& world,
-                              PxMaterial* mat,
-                              glm::vec3 pos = {},
-                              float size = 1.0f) {
-        PhysicsBody meshBody;
-        PxTriangleMeshDesc meshDesc;
-        std::vector<glm::vec3> data;
-        meshDesc.points.count = mesh.points.size();
-        meshDesc.points.stride = sizeof(glm::vec3);
-        meshDesc.points.data = mesh.points.data();
-        meshDesc.triangles.count = mesh.indices.size() / 3;
-        meshDesc.triangles.stride = 3*sizeof(PxU32);
-        meshDesc.triangles.data = mesh.indices.data();
-
-        assert(meshDesc.isValid());
-
-        bool res = world.cooking->validateTriangleMesh(meshDesc);
-        if (!res) {
-            fprintf(stderr, "Error in MeshBody::fromMesh(): triangle mesh validation failed\n");
-            return {};
-        }
-
-        PxDefaultMemoryOutputStream writeBuffer;
-        PxTriangleMeshCookingResult::Enum result;
-        bool status = world.cooking->cookTriangleMesh(meshDesc, writeBuffer, &result);
-        if (!status) {
-            fprintf(stderr, "Error in MeshBody::fromMesh(): cooking triangle mesh failed\n");
-            return {};
-        }
-
-        PxDefaultMemoryInputData readBuffer(writeBuffer.getData(), writeBuffer.getSize());
-        PxTriangleMesh* triangleMesh = world.physics->createTriangleMesh(readBuffer);
+    static PhysicsBody ourBox(  PhysicsWorld& world,
+                                float x, float y, float z, float thickness,
+                                PxMaterial* mat,
+                                glm::vec3 pos = glm::vec3(0.0f),
+                                glm::quat rot = glm::identity<glm::quat>(),
+                                glm::vec3 scale = glm::vec3(1.0f)) {
+        PhysicsBody prim;
+        PxShape* floor = world.physics->createShape(PxBoxGeometry(x, y, thickness), *mat);
+        PxTransform fLocalTm(GLMToPx(glm::vec3{ x, y, thickness }), GLMToPx(rot));
+        floor->setLocalPose(fLocalTm);
+        defer{ floor->release(); };
+        floor->setFlag(PxShapeFlag::eVISUALIZATION, true);
 
         PxTransform localTm(GLMToPx(pos), GLMToPx(rot));
-        meshBody.body = world.physics->createRigidDynamic(localTm);
+        prim.body = world.physics->createRigidDynamic(localTm);
+        prim.body->attachShape(*floor);
+        PxRigidBodyExt::updateMassAndInertia(*prim.body, 10.0f);
+        world.scene->addActor(*prim.body);
 
-        auto geom = PxTriangleMeshGeometry(triangleMesh, GLMToPx(scale));
-        auto shape = world.physics->createShape(geom, *mat);
-        meshBody.body->attachShape(*shape);
-        PxRigidBodyExt::updateMassAndInertia(*meshBody.body, 10.0f);
-        world.scene->addActor(*meshBody.body);
-
-        return meshBody;
+        return prim;
     }
 
     static PhysicsBody sphere(PhysicsWorld& world,
