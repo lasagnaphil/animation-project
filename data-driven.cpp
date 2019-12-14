@@ -90,7 +90,8 @@ public:
         //     exit(EXIT_FAILURE);
         // }
         // box.body = *bodyOpt;
-        box.body = PhysicsBody::ourBox(world, 0.25f, 0.25f, 0.15f, 0.025f, world.physics->createMaterial(0.5f, 0.5f, 0.6f));
+        boxHX = 0.25f; boxHY = 0.25f; boxHZ = 0.15f; boxHT = 0.025f;    // @TODO : Hardcoding.
+        box.body = PhysicsBody::ourBox(world, boxHX, boxHY, boxHZ, boxHT, world.physics->createMaterial(0.5f, 0.5f, 0.6f));
 
         // Prepare the spheres
         glm::vec3 colorList[] = {
@@ -120,7 +121,6 @@ public:
         }
 
         // Prepare motion clip
-
         bvh = MotionClipData::loadFromFile("resources/127_25_1.bvh", 0.01f);
         if (!bvh.valid) {
             fprintf(stderr, "BVH load failed!\n");
@@ -169,18 +169,25 @@ public:
         currentPose = motionClipPlayer.getPoseState();
         posePhysicsBody.setPose(currentPose, poseTree);
 
-        for (int i = 0; i < sphereCount; i++) {
-            spheres[i].body.setPosition(
-                glm::vec3((i % 10) * 2 * (sphereRadius + sphereDist),
-                          sphereRadius,
-                          (i / 10) * 2 * (sphereRadius + sphereDist)));
-            spheres[i].body.setLinearVelocity({});
-            spheres[i].body.setAngularVelocity({});
+        // Box and Spheres.
+        glm::vec3 boxPos(0.0f, 1.0f, 5.0f);
+        for(int x = 0; x < sphereCountWidth; x++) {
+            for(int y = 0; y < sphereCountWidth; y++) {
+                for(int z = 0; z < sphereCountWidth; z++) {
+                    int i = x * sphereCountWidth * sphereCountWidth + y * sphereCountWidth + z;
+                    spheres[i].body.setPosition(
+                        glm::vec3(boxPos.x + 3.0f * sphereRadius + x * 2.0f * (sphereRadius + sphereDist),
+                        boxPos.y + sphereRadius + boxHT * 2.0f + y * 2.0f * (sphereRadius + sphereDist),
+                        boxPos.z - 3.0f * sphereRadius - z * 2.0f * (sphereRadius + sphereDist)));
+                    spheres[i].body.setLinearVelocity({});
+                    spheres[i].body.setAngularVelocity({});
+                }
+            }
         }
 
         // box
         box.body.setTransform(glmx::transform(
-            glm::vec3(0.0f, 5.0f, 0.0f), 
+            boxPos, 
             glm::angleAxis((float)(-M_PI / 2.0), glm::vec3(1, 0, 0))));
         
         box.body.setLinearVelocity({});
@@ -255,7 +262,7 @@ public:
 
         pbRenderer.queueRender({box.mesh, box.material, glmx::mat4_cast(pxToRender(box.body.getTransform()))});
         for (auto& sphere : spheres) {
-            pbRenderer.queueRender({sphere.mesh, sphere.material, glm::translate(sphere.body.getTransform().v)});
+            pbRenderer.queueRender({sphere.mesh, sphere.material, glmx::mat4_cast(pxToRender(sphere.body.getTransform()))});
         }
         pbRenderer.render();
 
@@ -330,11 +337,13 @@ private:
     PosePhysicsBodySkel posePhysicsBodySkel;
 
     const int sphereColorsCount = 10;
-    const int sphereCount = 100;
-    const float sphereRadius = 0.025f;
+    const int sphereCountWidth = 5;
+    const int sphereCount = sphereCountWidth * sphereCountWidth * sphereCountWidth;
+    const float sphereRadius = 0.035f;
     const float sphereDist = 0.001f;
 
     PhysicsObject box;
+    float boxHX, boxHY, boxHZ, boxHT;   // Half X width, ... , Half Thickness.
     std::vector<PhysicsObject> spheres;
 
     Ref<PBRMaterial> groundMat;
