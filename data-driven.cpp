@@ -19,8 +19,6 @@ struct PhysicsObject {
     Ref<PBRMaterial> material;
 };
 
-
-
 class MyApp : public App {
 public:
     MyApp() : App(false, AppRenderSettings::PBR) {}
@@ -92,7 +90,7 @@ public:
         //     exit(EXIT_FAILURE);
         // }
         // box.body = *bodyOpt;
-        box.body = PhysicsBody::ourBox(world, 0.25f, 0.25f, 0.15f, 0.05f, world.physics->createMaterial(0.5f, 0.5f, 0.6f));
+        box.body = PhysicsBody::ourBox(world, 0.25f, 0.25f, 0.15f, 0.025f, world.physics->createMaterial(0.5f, 0.5f, 0.6f));
 
         // Prepare the spheres
         glm::vec3 colorList[] = {
@@ -119,7 +117,6 @@ public:
             spheres[i].body = PhysicsBody::sphere(world, world.physics->createMaterial(0.5f, 0.5f, 0.6f), {}, sphereRadius);
             spheres[i].mesh = sphereMesh;
             spheres[i].material = sphereMats[i % sphereColorsCount];
-
         }
 
         // Prepare motion clip
@@ -183,8 +180,9 @@ public:
 
         // box
         box.body.setTransform(glmx::transform(
-            glm::vec3(0.0f, 0.0f, 0.0f), 
-            glm::angleAxis((float)-M_PI/2, glm::vec3(1, 0, 0))));
+            glm::vec3(0.0f, 5.0f, 0.0f), 
+            glm::angleAxis((float)(-M_PI / 2.0), glm::vec3(1, 0, 0))));
+        
         box.body.setLinearVelocity({});
         box.body.setAngularVelocity({});
     }
@@ -240,6 +238,12 @@ public:
         }
     }
 
+    glmx::transform pxToRender(const glmx::transform &tr) {
+        glmx::transform rtr;
+        rtr.q = tr.q;
+        rtr.v = glm::transpose(glm::toMat3(rtr.q)) * tr.v;
+        return rtr;
+    }
 
     void render() override {
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -249,7 +253,7 @@ public:
         renderMotionClip(pbRenderer, imRenderer, currentPose, poseTree, poseRenderBody);
         renderMotionClip(pbRenderer, imRenderer, convertedPose, poseTree, poseRenderBody2);
 
-        pbRenderer.queueRender({box.mesh, box.material, glmx::mat4_cast(box.body.getTransform())});
+        pbRenderer.queueRender({box.mesh, box.material, glmx::mat4_cast(pxToRender(box.body.getTransform()))});
         for (auto& sphere : spheres) {
             pbRenderer.queueRender({sphere.mesh, sphere.material, glm::translate(sphere.body.getTransform().v)});
         }
