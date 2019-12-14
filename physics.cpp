@@ -9,6 +9,7 @@
 #include "PhysXDebugRenderer.h"
 #include "MotionClipData.h"
 #include "MotionClipPlayer.h"
+#include "PoseKinematics.h"
 
 PxDefaultAllocator gAllocator = {};
 PxDefaultErrorCallback gErrorCallback = {};
@@ -100,6 +101,7 @@ public:
                     {}, glm::identity<glm::quat>(), boxSize);
             // box.body.body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
 
+            box.body.body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
         }
         if (enableSpheres) {
             // Prepare the spheres
@@ -169,8 +171,10 @@ public:
         posePhysicsBody.setRoot(glmx::transform(glm::vec3(0.f, 0.9f, 0.f)));
 
         // Now attach the box to the hands
+        /*
         auto [leftHandJoint, rightHandJoint] = posePhysicsBody.attachBoxToHands(world, poseTree, box.body,
                 PxTransform(PxVec3(-boxSize.x/2, 0, 0)), PxTransform(PxVec3(boxSize.x/2, 0, 0)), 0.03f);
+                */
 
         reset();
     }
@@ -239,14 +243,39 @@ public:
             }
             else {
                 currentPose = motionClipPlayer.getPoseState();
+                uint32_t leftHandIdx = poseTree.findIdx("LeftHand");
+                uint32_t rightHandIdx = poseTree.findIdx("RightHand");
+                uint32_t leftRelevantIndices[] = {
+                        poseTree.findIdx("LeftArm"), poseTree.findIdx("LeftForeArm")
+                };
+                uint32_t rightRelevantIndices[] = {
+                        poseTree.findIdx("RightArm"), poseTree.findIdx("RightForeArm")
+                };
+                auto leftHandTrans = calcFK(poseTree, currentPose, leftHandIdx);
+                auto rightHandTrans = calcFK(poseTree, currentPose, rightHandIdx);
+                glmx::transform boxTrans;
+                boxTrans.v.x = 0.5f * (leftHandTrans.v.x + rightHandTrans.v.x);
+                boxTrans.v.y = 0.5f * (leftHandTrans.v.y + rightHandTrans.v.y);
+                boxTrans.v.z = currentPose.v.z - 0.4f;
+                boxTrans.q = glm::identity<glm::quat>();
+                boxLeftPos = boxTrans.v - glm::rotate(boxTrans.q, {boxSize.x / 2, 0, 0});
+                boxRightPos = boxTrans.v + glm::rotate(boxTrans.q, {boxSize.x / 2, 0, 0});
+                box.body.setTransform(boxTrans);
+
+                solveTwoJointIK(poseTree, currentPose,
+                                poseTree.findIdx("LeftArm"), poseTree.findIdx("LeftForeArm"), poseTree.findIdx("LeftHand"),
+                                boxLeftPos);
+
+                solveTwoJointIK(poseTree, currentPose,
+                                poseTree.findIdx("RightArm"), poseTree.findIdx("RightForeArm"), poseTree.findIdx("RightHand"),
+                                boxRightPos);
+
                 posePhysicsBody.setPose(currentPose, poseTree);
 
                 bool advanced = world.advance(physicsDt);
                 if (advanced) {
                     world.fetchResults();
                 }
-
-                posePhysicsBody.getPose(convertedPose, poseTree);
             }
         }
     }
@@ -258,7 +287,7 @@ public:
 
         // pbRenderer.queueRender({groundMesh, groundMat, rootTransform->getWorldTransform()});
         renderMotionClip(pbRenderer, imRenderer, currentPose, poseTree, poseRenderBody);
-        renderMotionClip(pbRenderer, imRenderer, convertedPose, poseTree, poseRenderBody2);
+        // renderMotionClip(pbRenderer, imRenderer, convertedPose, poseTree, poseRenderBody2);
 
         if (enableBox) {
             auto boxTrans = box.body.getTransform();
@@ -276,6 +305,12 @@ public:
         // imRenderer.drawPoint(pbRenderer.pointLights[2].position, colors::Yellow, 4.0f, true);
         // imRenderer.drawPoint(pbRenderer.pointLights[3].position, colors::Yellow, 4.0f, true);
         imRenderer.drawAxisTriad(glm::mat4(1.0f), 0.1f, 1.0f, false);
+        imRenderer.drawSphere(boxLeftPos, colors::Blue, 0.05f, true);
+        imRenderer.drawSphere(boxRightPos, colors::Blue, 0.05f, true);
+        glm::vec3 leftHandPos = calcFK(poseTree, currentPose, poseTree.findIdx("LeftHand")).v;
+        glm::vec3 rightHandPos = calcFK(poseTree, currentPose, poseTree.findIdx("RightHand")).v;
+        imRenderer.drawSphere(leftHandPos, colors::Green, 0.05f, true);
+        imRenderer.drawSphere(rightHandPos, colors::Green, 0.05f, true);
         imRenderer.render();
 
         if (enableDebugRendering) {
@@ -360,6 +395,8 @@ private:
 
     bool enableBox = true;
     bool enableSpheres = false;
+
+    glm::vec3 boxLeftPos, boxRightPos;
 };
 
 int main(int argc, char** argv) {
