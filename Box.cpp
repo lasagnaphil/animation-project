@@ -3,6 +3,7 @@
 #include <tuple>
 #include <deps/glm/glm/gtx/transform.hpp>
 #include <deps/glm/glm/gtx/string_cast.hpp>
+#include <iostream>
 
 inline glm::mat4 rotationBetweenVecs(glm::vec3 a, glm::vec3 b) {
     glm::vec3 v = glm::cross(a, b);
@@ -71,5 +72,9 @@ glm::mat4 Box::getTransformFromHands(   const glmx::pose& poseState,
     glm::vec4 lpos = lhandTR * glm::vec4(0, 0, 0, 1);
     glm::vec4 rpos = rhandTR * glm::vec4(0, 0, 0, 1);
     glm::vec4 bpos = (lpos + rpos) * 0.5f;
-    return glm::translate(glm::vec3(bpos) + glm::vec3(0, 0, 0.2f));     // @TODO : Only consider hand positions now. Have to consider hand rotations also...
+    glm::mat4 ret = glm::translate(glm::vec3(0.0f, 0.0f, 0.0f));
+    ret[0][3] = bpos.x;
+    ret[1][3] = bpos.y;
+    ret[2][3] = bpos.z + 0.2f;
+    return ret;     // @TODO : Only consider hand positions now. Have to consider hand rotations also...
 }

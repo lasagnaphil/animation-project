@@ -10,6 +10,7 @@
 #include "MotionClipData.h"
 #include "MotionClipPlayer.h"
 #include "AnimStateMachine.h"
+#include "Box.h"
 
 PxDefaultAllocator gAllocator = {};
 PxDefaultErrorCallback gErrorCallback = {};
@@ -167,6 +168,7 @@ public:
 
     void reset() {
         kinematicChar = true;
+        pickedBox = false;
         enablePhysics = false;
 
         world.scene->removeAggregate(*posePhysicsBody.aggregate);
@@ -174,7 +176,7 @@ public:
         currentPose = animFSM.getCurrentPose();
 
         // Box and Spheres.
-        glm::vec3 boxPos(0.0f, 1.0f, 5.0f);
+        glm::vec3 boxPos(0.0f, 0.1f, 5.0f);
         for(int x = 0; x < sphereCountWidth; x++) {
             for(int y = 0; y < sphereCountWidth; y++) {
                 for(int z = 0; z < sphereCountWidth; z++) {
@@ -214,21 +216,47 @@ public:
             time -= physicsDt;
 
             if(kinematicChar) {
+                // Before character falls down.
                 if (inputMgr->isKeyPressed(SDL_SCANCODE_UP))
                     animFSM.setParam("is_walking", true);
                 else 
                     animFSM.setParam("is_walking", false);
                 animFSM.update(dt);
 
-                if(enablePhysics) {
-                    bool advanced = world.advance(physicsDt);
-                    if (advanced) 
-                        world.fetchResults();
+                currentPose = animFSM.getCurrentPose();
+
+                glm::vec3 boxOffset = box.body.getTransform().v - currentPose.getRoot().v;
+                boxOffset.y = 0.0f;
+                const static float nearBoxThres = 1.0f;
+                float len = glm::length(boxOffset);
+                if(len < nearBoxThres) {
+                    // pick up box.
+                    pickedBox = true;
                 }
 
-                currentPose = animFSM.getCurrentPose();
+                if(pickedBox) {
+                    // Do not have to do physics on box and spheres.
+                    // Set box position to rootpos. @TODO
+                    glm::vec3 rootPos = currentPose.getRoot().v;
+                    glm::vec3 boxPos = rootPos + glm::vec3(0.0f, 0.0f, 0.2f);
+                    glm::vec3 boxOffset = boxPos - box.body.getPosition();
+                    
+                    box.body.setPosition(boxPos);
+
+                    // Also move spheres...
+                    for (int i = 0; i < sphereCount; i++) 
+                        spheres[i].body.setPosition(spheres[i].body.getPosition() + boxOffset);
+                }
+                else {
+                    if(enablePhysics) {
+                        bool advanced = world.advance(physicsDt);
+                        if (advanced) 
+                            world.fetchResults();
+                    }
+                }
             }
             else {
+                // After character falls down.
                 if (enablePhysics) {
                     bool advanced = world.advance(physicsDt);
                     if (advanced)
@@ -353,7 +381,8 @@ private:
     Ref<Mesh> groundMesh;
 
     bool enablePhysics = false;
-    bool kinematicChar = true; // If it is true, character is in kinematic state.
+    bool pickedBox = false;     // If it is true, character is carrying box now.
+    bool kinematicChar = true;  // If it is true, character is in kinematic state.
 
     AnimStateMachine animFSM;
 };
