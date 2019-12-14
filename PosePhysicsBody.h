@@ -78,11 +78,13 @@ PxQuat twistSwingToQuat(PxVec3 v)
 struct PosePhysicsBody {
     physx::PxArticulationReducedCoordinate* articulation;
 
+    PxAggregate *aggregate;
     PxArticulationCache* cache;
 
     std::vector<uint32_t> dofStarts;
     std::unordered_map<uint32_t, PxArticulationLink*> nodeToLink;
     uint32_t dofCount = 0;
+
 
     void init(PhysicsWorld& world, const PoseTree& poseTree, const PosePhysicsBodySkel& skel) {
         // Initialize Articulation
@@ -169,7 +171,7 @@ struct PosePhysicsBody {
         }
          */
 
-        PxAggregate* aggregate = world.physics->createAggregate(articulation->getNbLinks(), false);
+        aggregate = world.physics->createAggregate(articulation->getNbLinks(), false);
         aggregate->addArticulation(*articulation);
         world.scene->addAggregate(*aggregate);
 

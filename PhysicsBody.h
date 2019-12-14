@@ -29,6 +29,57 @@ struct PhysicsBody {
         prim.body->attachShape(*shape);
         PxRigidBodyExt::updateMassAndInertia(*prim.body, density);
         world.scene->addActor(*prim.body);
+        
+        return prim;
+    }
+
+    static PhysicsBody ourBox(  PhysicsWorld& world,
+                                float x, float y, float z, float thickness,
+                                PxMaterial* mat,
+                                glm::vec3 pos = glm::vec3(0.0f),
+                                glm::quat rot = glm::identity<glm::quat>(),
+                                glm::vec3 scale = glm::vec3(1.0f)) {
+        PhysicsBody prim;
+        
+        PxShape* floor = world.physics->createShape(PxBoxGeometry(x, y, thickness), *mat, true);
+        PxTransform fLocalTm(GLMToPx(glm::vec3{ x, y, thickness }), GLMToPx(rot));
+        floor->setLocalPose(fLocalTm);
+        defer{ floor->release(); };
+        //floor->setFlag(PxShapeFlag::eVISUALIZATION, true);
+
+        PxShape* xDown = world.physics->createShape(PxBoxGeometry(thickness, y, (z - thickness)), *mat, true);
+        PxTransform fLocalTm2(GLMToPx(glm::vec3{ thickness, y, z + thickness }), GLMToPx(rot));
+        xDown->setLocalPose(fLocalTm2);
+        defer{ xDown->release(); };
+        //xDown->setFlag(PxShapeFlag::eVISUALIZATION, true);
+
+        PxShape* xUp = world.physics->createShape(PxBoxGeometry(thickness, y, (z - thickness)), *mat, true);
+        PxTransform fLocalTm3(GLMToPx(glm::vec3{ 2 * x - thickness, y, z + thickness }), GLMToPx(rot));
+        xUp->setLocalPose(fLocalTm3);
+        defer{ xUp->release(); };
+        //xUp->setFlag(PxShapeFlag::eVISUALIZATION, true);
+
+        PxShape* yDown = world.physics->createShape(PxBoxGeometry(x - thickness, thickness, z - thickness), *mat, true);
+        PxTransform fLocalTm4(GLMToPx(glm::vec3{ x + thickness, thickness, z + thickness }), GLMToPx(rot));
+        yDown->setLocalPose(fLocalTm4);
+        defer{ yDown->release(); };
+        //yDown->setFlag(PxShapeFlag::eVISUALIZATION, true);
+
+        PxShape* yUp = world.physics->createShape(PxBoxGeometry(x - thickness, thickness, z - thickness), *mat, true);
+        PxTransform fLocalTm5(GLMToPx(glm::vec3{ x + thickness, 2 * y - thickness, z + thickness }), GLMToPx(rot));
+        yUp->setLocalPose(fLocalTm5);
+        defer{ yUp->release(); };
+        //yUp->setFlag(PxShapeFlag::eVISUALIZATION, true);
+
+        PxTransform localTm(GLMToPx(pos), GLMToPx(rot));
+        prim.body = world.physics->createRigidDynamic(localTm);
+        prim.body->attachShape(*floor);
+        prim.body->attachShape(*xDown);
+        prim.body->attachShape(*xUp);
+        prim.body->attachShape(*yDown);
+        prim.body->attachShape(*yUp);
+        PxRigidBodyExt::updateMassAndInertia(*prim.body, 10.0f);
+        world.scene->addActor(*prim.body);
 
         return prim;
     }
@@ -38,7 +89,6 @@ struct PhysicsBody {
                               float density,
                               glm::vec3 pos = {},
                               float size = 1.0f) {
-
         PhysicsBody prim;
         PxShape* shape = world.physics->createShape(PxSphereGeometry(size), *mat);
         defer { shape->release(); };

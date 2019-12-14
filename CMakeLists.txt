@@ -16,6 +16,13 @@ target_link_libraries(animation_project debug ${PhysX_LIBRARIES_DEBUG})
 target_link_libraries(animation_project optimized ${PhysX_LIBRARIES_RELEASE})
 add_dependencies(animation_project copy_resource_folder)
 
+add_executable(data_driven_anim data-driven.cpp PhysicsWorld.cpp Box.cpp)
+target_include_directories(data_driven_anim PUBLIC gengine ${PhysX_INCLUDE_DIR} ${PxShared_INCLUDE_DIR})
+target_link_libraries(data_driven_anim gengine)
+target_link_libraries(data_driven_anim debug ${PhysX_LIBRARIES_DEBUG})
+target_link_libraries(data_driven_anim optimized ${PhysX_LIBRARIES_RELEASE})
+add_dependencies(data_driven_anim copy_resource_folder)
+
 add_executable(physics_test physics.cpp PhysicsWorld.cpp)
 target_include_directories(physics_test PUBLIC gengine ${PhysX_INCLUDE_DIR} ${PxShared_INCLUDE_DIR})
 target_link_libraries(physics_test gengine)
