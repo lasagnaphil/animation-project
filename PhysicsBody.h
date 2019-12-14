@@ -87,7 +87,6 @@ struct PhysicsBody {
                               PxMaterial* mat,
                               glm::vec3 pos = {},
                               float size = 1.0f) {
-
         PhysicsBody prim;
         PxShape* shape = world.physics->createShape(PxSphereGeometry(size), *mat);
         defer { shape->release(); };
