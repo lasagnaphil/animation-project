@@ -206,7 +206,7 @@ public:
             mats[i]->texMetallic = Texture::fromSingleColor({0.8f, 0.0f, 0.0f});
             mats[i]->texRoughness = Texture::fromSingleColor({0.8f, 0.0f, 0.0f});
         }
-        poseRenderBody = PoseRenderBodyPBR::createFromSkel(poseTree, posePhysicsBodySkel, mats);
+        poseRenderBody = createFromSkel(poseTree, posePhysicsBodySkel, mats);
 
         reset();
     }
