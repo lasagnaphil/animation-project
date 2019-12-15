@@ -353,6 +353,27 @@ public:
                             boxRightPos);
         }
 
+        if (currentState && animFSM.get(currentState)->name == "jump") {
+            uint32_t leftFootIdx = poseTree.findIdx("LeftFoot");
+            uint32_t rightFootIdx = poseTree.findIdx("RightFoot");
+            //uint32_t leftFootEndIdx = poseTree.getChildIdx(leftFootIdx, "End Site");
+            //uint32_t rightFootEndIdx = poseTree.getChildIdx(rightFootIdx, "End Site");
+            auto leftFootTrans = calcFK(poseTree, currentPose, leftFootIdx);
+            auto rightFootTrans = calcFK(poseTree, currentPose, rightFootIdx);
+
+            if(leftFootTrans.v.y < -0.01f) {
+                glm::vec3 target = leftFootTrans.v;
+                target.y = -0.01f;
+                solveTwoJointIK(poseTree, currentPose, poseTree.findIdx("LeftUpLeg"), poseTree.findIdx("LeftLeg"), leftFootIdx, target);
+            }
+
+            if(rightFootTrans.v.y < -0.01f) {
+                glm::vec3 target = rightFootTrans.v;
+                target.y = -0.01f;
+                solveTwoJointIK(poseTree, currentPose, poseTree.findIdx("RightUpLeg"), poseTree.findIdx("RightLeg"), rightFootIdx, target);
+            }
+        }
+        
         // Update physics
         while (time >= physicsDt) {
             time -= physicsDt;
@@ -393,7 +414,7 @@ public:
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        pbRenderer.queueRender({groundMesh, groundMat, rootTransform->getWorldTransform()});
+        pbRenderer.queueRender({groundMesh, groundMat, glm::translate(glm::vec3(0, -0.02, 0))});
         renderMotionClip(pbRenderer, imRenderer, currentPose, poseTree, poseRenderBody);
         // renderMotionClip(pbRenderer, imRenderer, convertedPose, poseTree, poseRenderBody2);
 
@@ -422,13 +443,13 @@ public:
         glm::vec3 rightHandPos = calcFK(poseTree, currentPose, poseTree.findIdx("RightHand")).v;
         imRenderer.drawSphere(leftHandPos, colors::Green, 0.05f, true);
         imRenderer.drawSphere(rightHandPos, colors::Green, 0.05f, true);
-        imRenderer.render();
+        //imRenderer.render();
 
         if (enableDebugRendering) {
             pxDebugRenderer.render(world);
         }
 
-        renderImGui();
+        //renderImGui();
     }
 
     void renderImGui() {

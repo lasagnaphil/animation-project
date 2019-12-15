@@ -285,6 +285,8 @@ public:
         static float time = 0.f;
         const float physicsDt = 1.0f / 120.0f;
 
+        static bool hitStopZ = false;
+
         time += dt;
 
         auto inputMgr = InputManager::get();
@@ -297,7 +299,7 @@ public:
         if(inputMgr->isKeyPressed(SDL_SCANCODE_DOWN)) {
             animFSM.setParam("is_climbing", true);
         }
-        if (inputMgr->isKeyPressed(SDL_SCANCODE_UP))
+        if (inputMgr->isKeyPressed(SDL_SCANCODE_UP) && !hitStopZ)
             animFSM.setParam("is_walking", true);
         else
             animFSM.setParam("is_walking", false);
@@ -347,6 +349,18 @@ public:
                             poseTree.findIdx("RightHand"),
                             boxRightPos);
         }
+
+        if (!hitStopZ && currentState && animFSM.get(currentState)->name == "walk") {
+            uint32_t rootIdx = poseTree.findIdx("Hips");
+            auto rootTrans = calcFK(poseTree, currentPose, rootIdx);    
+            static float stopZ = -4.18f;
+
+            if(rootTrans.v.z < stopZ) {
+                animFSM.setParam("is_walking", false);
+                hitStopZ = true;
+            }
+        }
+
 
         // Update physics
         while (time >= physicsDt) {
@@ -417,13 +431,13 @@ public:
         glm::vec3 rightHandPos = calcFK(poseTree, currentPose, poseTree.findIdx("RightHand")).v;
         imRenderer.drawSphere(leftHandPos, colors::Green, 0.05f, true);
         imRenderer.drawSphere(rightHandPos, colors::Green, 0.05f, true);
-        imRenderer.render();
+        //imRenderer.render();
 
         if (enableDebugRendering) {
             pxDebugRenderer.render(world);
         }
 
-        renderImGui();
+        //renderImGui();
     }
 
     void renderImGui() {
@@ -504,8 +518,8 @@ private:
     std::vector<PhysicsObject> stairs;      // Stairs are comprised of box objects.
     int stairCount = 3;
     float stairHeight = 0.5f;
-    float stairWidth = 0.3f;
-    float stairZ = -5.0f;
+    float stairWidth = 0.27f;
+    float stairZ = -4.85f;
 
     bool enableDebugRendering = true;
 
