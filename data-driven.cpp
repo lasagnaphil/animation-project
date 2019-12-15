@@ -12,6 +12,8 @@
 #include "AnimStateMachine.h"
 #include "Box.h"
 
+#define DEBUG_ANIM 1
+
 PxDefaultAllocator gAllocator = {};
 PxDefaultErrorCallback gErrorCallback = {};
 
@@ -21,18 +23,18 @@ struct PhysicsObject {
     Ref<PBRMaterial> material;
 };
 
+FlyCamera* fCamera;
 class MyApp : public App {
 public:
     MyApp() : App(false, AppRenderSettings::PBR) {}
 
-    void loadResources() override {
-        // Camera Setting
-        FlyCamera* camera = initCamera<FlyCamera>();
-        camera->movementSpeed = 1.0f;
-        Ref<Transform> cameraTransform = camera->transform;
+    void setCamera() {
+        fCamera = initCamera<FlyCamera>();
+        fCamera->movementSpeed = 1.0f;
+        Ref<Transform> cameraTransform = fCamera->transform;
         cameraTransform->setPosition({0.0f, 0.0f, 1.0f});
-
-        // Directional Light Setting
+    }
+    void setDirLight() {
         pbRenderer.dirLightProjVolume = {
                 {-10.f, -10.f, 0.f}, {10.f, 10.f, 1000.f}
         };
@@ -41,24 +43,25 @@ public:
         pbRenderer.dirLight.enabled = true;
         pbRenderer.dirLight.direction = glm::normalize(glm::vec3 {2.0f, -3.0f, -2.0f});
         pbRenderer.dirLight.color = {5.f, 5.f, 5.f};
-
-        // Initialize the PhysX Engine
+    }
+    void initPhysX() {
         pxFoundation = PxCreateFoundation(PX_PHYSICS_VERSION, gAllocator, gErrorCallback);
         if (!pxFoundation) {
             fprintf(stderr, "PxCreateFoundation Failed!\n");
             exit(EXIT_FAILURE);
         }
         world.init(pxFoundation, 1);
+    }
 
-        // Prepare the ground
+    void initGround() {
         groundMesh = Mesh::makePlane(100.0f, 100.0f);
         groundMat = PBRMaterial::quick(
                 "resources/textures/mossy-ground1-albedo.png",
                 "resources/textures/mossy-ground1-metal.png",
                 "resources/textures/mossy-ground1-roughness.png",
                 "resources/textures/mossy-ground1-ao.png");
-        
-        // Prepare the box
+    }
+    void initBox() {
         box.mesh = Mesh::fromOBJFile("resources/box.obj");
 
         box.material = Resources::make<PBRMaterial>();
@@ -70,8 +73,8 @@ public:
         
         boxHX = 0.25f; boxHY = 0.25f; boxHZ = 0.15f; boxHT = 0.025f;    // @TODO : Hardcoding.
         box.body = PhysicsBody::ourBox(world, boxHX, boxHY, boxHZ, boxHT, world.physics->createMaterial(0.5f, 0.5f, 0.6f));
-
-        // Prepare the spheres
+    }
+    void initSphere() {
         glm::vec3 colorList[] = {
                 colors::Red, colors::Blue, colors::Green, colors::Black, colors::Yellow, colors::Cyan, colors::Pink,
                 colors::White, colors::Magenta, colors::Gold
@@ -97,25 +100,38 @@ public:
             spheres[i].mesh = sphereMesh;
             spheres[i].material = sphereMats[i % sphereColorsCount];
         }
+    }
 
-        // Prepare obstacle
-        
+    void initAnim() {
+#if DEBUG_ANIM
+        bvh = MotionClipData::loadFromFile("resources/retargetted/111-36(pregnant_carry).bvh", 0.01f);
+        if (!bvh.valid) {
+            fprintf(stderr, "BVH load failed!\n");
+            exit(EXIT_FAILURE);
+        }
+        poseTree = bvh.poseTree;
+        // for (auto& poseState : bvh.poseStates) {
+            // poseState.v.y -= poseTree[0].offset.y;
+        //}
+        currentPose = bvh.poseStates[0];
+        convertedPose = currentPose;
 
-        // Prepare motion clip
+        motionClipPlayer = MotionClipPlayer(&bvh);
+        motionClipPlayer.init();
+#else
         auto idleBVH = MotionClipData::loadFromFile("resources/retargetted/111-36(pregnant_carry).bvh", 0.01f);
         auto walkBVH = MotionClipData::loadFromFile("resources/retargetted/111-36(pregnant_carry).bvh", 0.01f);
 
         //bvh = walkBVH;
-
         poseTree = idleBVH.poseTree;
         currentPose = glmx::pose::empty(poseTree.numJoints);
         convertedPose = currentPose;
 
         auto idlePoses = std::vector<glmx::pose>(30, idleBVH.poseStates[0]);
-        auto walkPoses = nonstd::span<glmx::pose>(walkBVH.poseStates.data() + 240, walkBVH.poseStates.size() - 240);
+        auto walkPoses = nonstd::span<glmx::pose>(walkBVH.poseStates.data() + 1063, 138);
 
-        auto idleAnim = animFSM.addAnimation("idle", nonstd::span<glmx::pose>(idlePoses.data(), idlePoses.size()), 60);
-        auto walkAnim = animFSM.addAnimation("walk", walkPoses, 60);
+        auto idleAnim = animFSM.addAnimation("idle", nonstd::span<glmx::pose>(idlePoses.data(), idlePoses.size()), 120);
+        auto walkAnim = animFSM.addAnimation("walk", walkPoses, 120);
 
         for (Ref<Animation> anim : { idleAnim, walkAnim })
         {
@@ -129,18 +145,18 @@ public:
 
         auto repeatIdleTrans = animFSM.addTransition("repeat_idle", idleState, idleState, 0.0f, 0.0f, 0.0f);
 
-        auto repeatWalkingTrans = animFSM.addTransition("repeat_walking", walkState, walkState, 1.0f, 1.0f, 1.0f);
+        auto repeatWalkingTrans = animFSM.addTransition("repeat_walking", walkState, walkState, 0.1f, 0.1f, 0.1f);
 
-        auto startWalkingTrans = animFSM.addTransition("start_walking", idleState, walkState, 1.0f, 1.0f, 1.0f);
+        auto startWalkingTrans = animFSM.addTransition("start_walking", idleState, walkState, 0.1f, 0.1f, 0.1f);
         animFSM.setTransitionCondition(startWalkingTrans, "is_walking", true);
 
-        auto stopWalkingTrans = animFSM.addTransition("stop_walking", walkState, idleState, 1.0f, 1.0f, 1.0f);
+        auto stopWalkingTrans = animFSM.addTransition("stop_walking", walkState, idleState, 0.1f, 0.1f, 0.1f);
         animFSM.setTransitionCondition(stopWalkingTrans, "is_walking", false);
 
         animFSM.setCurrentState(idleState);
-
-        // Prepare the human body
-
+#endif
+    }
+    void initBody() {
         Ref<PBRMaterial> poseBodyMat = Resources::make<PBRMaterial>();
         poseBodyMat->texAlbedo = Texture::fromSingleColor({0.5f, 0.0f, 0.0f});
         poseBodyMat->texAO = Texture::fromSingleColor({1.0f, 0.0f, 0.0f});
@@ -161,11 +177,27 @@ public:
         posePhysicsBody.putToSleep();
         
         // At first, character is in kinematic state.
-        //world.scene->removeAggregate(*posePhysicsBody.aggregate);
+        // world.scene->removeAggregate(*posePhysicsBody.aggregate);
 
         pxDebugRenderer.init(world);
-        pxDebugRenderer.setCamera(camera);
+        pxDebugRenderer.setCamera(fCamera);
+    }
 
+    void loadResources() override {
+        setCamera();
+        setDirLight();
+        initPhysX();
+
+        // Scene setting
+        initGround();
+        initBox();
+        initSphere();
+        
+        // Animation Setting
+        initAnim();
+        initBody();
+
+        // Reset
         reset();
     }
 
@@ -174,12 +206,18 @@ public:
         pickedBox = false;
         enablePhysics = false;
 
-        //world.scene->removeAggregate(*posePhysicsBody.aggregate);
+        // world.scene->removeAggregate(*posePhysicsBody.aggregate);
 
+#if DEBUG_ANIM
+        motionClipPlayer.setFrame(27);
+        currentPose = motionClipPlayer.getPoseState();
+        posePhysicsBody.setPose(currentPose, poseTree);
+#else
         currentPose = animFSM.getCurrentPose();
+#endif
 
         // Box and Spheres.
-        glm::vec3 boxPos(0.0f, 0.1f, 5.0f);
+        glm::vec3 boxPos(0.0f, 0.1f, 15.0f);
         for(int x = 0; x < sphereCountWidth; x++) {
             for(int y = 0; y < sphereCountWidth; y++) {
                 for(int z = 0; z < sphereCountWidth; z++) {
@@ -219,11 +257,18 @@ public:
             // currentPose = animFSM.getCurrentPose();
             // posePhysicsBody.setPose(currentPose, poseTree);
         }
+#if DEBUG_ANIM
+        motionClipPlayer.update(dt);
+#endif
         while (time >= physicsDt) {
             time -= physicsDt;
 
             if(kinematicChar) {
                 // Before character falls down.
+#if DEBUG_ANIM
+                currentPose = motionClipPlayer.getPoseState();
+                posePhysicsBody.setPose(currentPose, poseTree);
+#else
                 if (inputMgr->isKeyPressed(SDL_SCANCODE_UP))
                     animFSM.setParam("is_walking", true);
                 else 
@@ -261,6 +306,7 @@ public:
                             world.fetchResults();
                     }
                 }
+#endif
             }
             else {
                 // After character falls down.
@@ -304,11 +350,13 @@ public:
 
         pxDebugRenderer.render(world);
 
-        //motionClipPlayer.renderImGui();
-
+#if DEBUG_ANIM
+        motionClipPlayer.renderImGui();
+#else
         ImGui::SetNextWindowPos(ImVec2(23, 158));
         ImGui::SetNextWindowSize(ImVec2(447, 844));
         animFSM.renderImGui(poseTree);
+#endif
 
         renderImGui();
     }
@@ -319,9 +367,9 @@ public:
         if(kinematicChar) {
             if(ImGui::Button("Enable Character Ragdoll")) {
                 kinematicChar = false;
-                // world.scene->addAggregate(*posePhysicsBody.aggregate);
-                // currentPose = animFSM.getCurrentPose();
-                // posePhysicsBody.setPose(currentPose, poseTree);
+                //world.scene->addAggregate(*posePhysicsBody.aggregate);
+                currentPose = animFSM.getCurrentPose();
+                posePhysicsBody.setPose(currentPose, poseTree);
             }
         }
         else {
