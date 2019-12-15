@@ -30,6 +30,13 @@ target_link_libraries(stair_anim debug ${PhysX_LIBRARIES_DEBUG})
 target_link_libraries(stair_anim optimized ${PhysX_LIBRARIES_RELEASE})
 add_dependencies(stair_anim copy_resource_folder)
 
+add_executable(jump_anim jump.cpp PhysicsWorld.cpp Box.cpp)
+target_include_directories(jump_anim PUBLIC gengine ${PhysX_INCLUDE_DIR} ${PxShared_INCLUDE_DIR})
+target_link_libraries(jump_anim gengine)
+target_link_libraries(jump_anim debug ${PhysX_LIBRARIES_DEBUG})
+target_link_libraries(jump_anim optimized ${PhysX_LIBRARIES_RELEASE})
+add_dependencies(jump_anim copy_resource_folder)
+
 add_executable(physics_test physics.cpp PhysicsWorld.cpp)
 target_include_directories(physics_test PUBLIC gengine ${PhysX_INCLUDE_DIR} ${PxShared_INCLUDE_DIR})
 target_link_libraries(physics_test gengine)
