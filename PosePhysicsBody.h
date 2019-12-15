@@ -286,6 +286,10 @@ struct PosePhysicsBody {
         return {leftJoint, rightJoint};
     }
 
+    void applyImpulseAtRoot(glm::vec3 impulse) {
+        nodeToLink[0]->addForce(GLMToPx(impulse), PxForceMode::eIMPULSE, true);
+    }
+
     void renderImGui() {
         PxArticulationCacheFlags flags = PxArticulationCache::eROOT | PxArticulationCache::ePOSITION;
         articulation->copyInternalStateToCache(*cache, flags);

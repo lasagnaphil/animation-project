@@ -21,6 +21,12 @@ struct PhysicsObject {
     Ref<PBRMaterial> material;
 };
 
+/*
+class TripOverCallback : public PxSimulationEventCallback {
+public:
+};
+ */
+
 class MyApp : public App {
 public:
     MyApp() : App(false, AppRenderSettings::PBR) {}
@@ -71,22 +77,26 @@ public:
 
         // Prepare the ground
 
-        Ref<PBRMaterial> groundMat = PBRMaterial::quick(
+        groundMat = PBRMaterial::quick(
                 "resources/textures/mossy-ground1-albedo.png",
                 "resources/textures/mossy-ground1-metal.png",
                 "resources/textures/mossy-ground1-roughness.png",
                 "resources/textures/mossy-ground1-ao.png");
 
-        Ref<Mesh> groundMesh = Mesh::makePlane(100.0f, 100.0f);
+        groundMesh = Mesh::makePlane(100.0f, 100.0f);
+
+        auto defaultAO = Texture::fromSingleColor({1.0f, 0.0f, 0.0f});
+        auto defaultMetallic = Texture::fromSingleColor({0.5f, 0.0f, 0.0f});
+        auto defaultRoughness = Texture::fromSingleColor({0.5f, 0.0f, 0.0f});
 
         // Prepare the box
         if (enableBox) {
             box.mesh = Mesh::fromOBJFile("resources/box_edited2.obj");
             box.material = Resources::make<PBRMaterial>();
             box.material->texAlbedo = Texture::fromSingleColor(glm::vec3(0.4f));
-            box.material->texAO = Texture::fromSingleColor(glm::vec3(1.0f, 0.0f, 0.0f));
-            box.material->texMetallic = Texture::fromSingleColor(glm::vec3(0.5f, 0.0f, 0.0f));
-            box.material->texRoughness = Texture::fromSingleColor(glm::vec3(0.5f, 0.0f, 0.0f));
+            box.material->texAO = defaultAO;
+            box.material->texMetallic = defaultMetallic;
+            box.material->texRoughness = defaultRoughness;
             box.mesh->indices.clear(); // We don't need the index buffer
             box.body = PhysicsBody::ourBox(world, boxSize.x, boxSize.y, boxSize.z, boxThickness,
                     world.physics->createMaterial(0.5f, 0.5f, 0.6f));
@@ -98,17 +108,13 @@ public:
                     colors::Red, colors::Blue, colors::Green, colors::Black, colors::Yellow, colors::Cyan, colors::Pink,
                     colors::White, colors::Magenta, colors::Gold
             };
-            auto texAO = Texture::fromSingleColor({1.0f, 0.0f, 0.0f});
-            auto texMetallic = Texture::fromSingleColor({0.5f, 0.0f, 0.0f});
-            auto texRoughness = Texture::fromSingleColor({0.5f, 0.0f, 0.0f});
-
             std::vector<Ref<PBRMaterial>> sphereMats(sphereColorsCount);
             for (int i = 0; i < sphereColorsCount; i++) {
                 sphereMats[i] = Resources::make<PBRMaterial>();
                 sphereMats[i]->texAlbedo = Texture::fromSingleColor(colorList[i]);
-                sphereMats[i]->texAO = texAO;
-                sphereMats[i]->texMetallic = texMetallic;
-                sphereMats[i]->texRoughness = texRoughness;
+                sphereMats[i]->texAO = defaultAO;
+                sphereMats[i]->texMetallic = defaultMetallic;
+                sphereMats[i]->texRoughness = defaultRoughness;
             }
 
             Ref<Mesh> sphereMesh = Mesh::makeSphere(sphereRadius);
@@ -122,9 +128,20 @@ public:
             }
         }
 
+        if (enableObstacle) {
+            obstacle.body = PhysicsBody::box(world, world.physics->createMaterial(0.5f, 0.5f, 0.6f), 10.0f,
+                    glm::vec3(-5, 0, 0), glm::identity<glm::quat>(), obstacleSize);
+            obstacle.body.setKinematic(true);
+            obstacle.mesh = Mesh::makeCube(obstacleSize);
+            obstacle.material = Resources::make<PBRMaterial>();
+            obstacle.material->texAlbedo = Texture::fromSingleColor(colors::White);
+            obstacle.material->texAO = defaultAO;
+            obstacle.material->texMetallic = defaultMetallic;
+            obstacle.material->texRoughness = defaultRoughness;
+        }
+
         // Prepare motion clip
         pickupBVH = MotionClipData::loadFromFile("resources/retargetted/111-17(pregnant_pick_up).bvh", 0.01f);
-        auto idleBVH = MotionClipData::loadFromFile("resources/retargetted/111-36(pregnant_carry).bvh", 0.01f);
         auto walkBVH = MotionClipData::loadFromFile("resources/retargetted/111-36(pregnant_carry).bvh", 0.01f);
 
         //bvh = walkBVH;
@@ -133,12 +150,13 @@ public:
         currentPose = glmx::pose::empty(poseTree.numJoints);
 
         auto pickupPoses = pickupBVH.slice(1, pickupBVH.numFrames);
-        auto idlePoses = std::vector<glmx::pose>(30, pickupBVH.poseStates[pickupBVH.numFrames - 1]);
-        auto walkPoses = walkBVH.slice(240, walkBVH.numFrames);
+        auto idlePoses = std::vector<glmx::pose>(120, pickupBVH.poseStates[pickupBVH.numFrames - 1]);
+        // auto walkPoses = walkBVH.slice(240, walkBVH.numFrames);
+        auto walkPoses = walkBVH.slice(1063, 1201);
 
-        auto pickupAnim = animFSM.addAnimation("pickup", pickupPoses, 30);
-        auto idleAnim = animFSM.addAnimation("idle", idlePoses, 30);
-        auto walkAnim = animFSM.addAnimation("walk", walkPoses, 30);
+        auto pickupAnim = animFSM.addAnimation("pickup", pickupPoses, 120);
+        auto idleAnim = animFSM.addAnimation("idle", idlePoses, 120);
+        auto walkAnim = animFSM.addAnimation("walk", walkPoses, 120);
 
         for (Ref<Animation> anim : { pickupAnim, idleAnim, walkAnim })
         {
@@ -155,15 +173,14 @@ public:
 
         auto repeatIdleTrans = animFSM.addTransition("repeat_idle", idleState, idleState, 0.0f, 0.0f, 0.0f);
 
-        auto repeatWalkingTrans = animFSM.addTransition("repeat_walking", walkState, walkState, 1.0f, 1.0f, 1.0f);
+        auto repeatWalkingTrans = animFSM.addTransition("repeat_walking", walkState, walkState, 0.1f, 0.1f, 0.1f);
 
-        auto startWalkingTrans = animFSM.addTransition("start_walking", idleState, walkState, 1.0f, 1.0f, 1.0f);
+        auto startWalkingTrans = animFSM.addTransition("start_walking", idleState, walkState, 0.1f, 0.1f, 0.1f);
         animFSM.setTransitionCondition(startWalkingTrans, "is_walking", true);
 
-        auto stopWalkingTrans = animFSM.addTransition("stop_walking", walkState, idleState, 1.0f, 1.0f, 1.0f);
+        auto stopWalkingTrans = animFSM.addTransition("stop_walking", walkState, idleState, 0.1f, 0.1f, 0.1f);
         animFSM.setTransitionCondition(stopWalkingTrans, "is_walking", false);
 
-        animFSM.setCurrentState(pickupState);
 
         // Prepare the human body
 
@@ -228,12 +245,17 @@ public:
                 }
             }
         }
+
+        if (enableObstacle) {
+            obstacle.body.setPosition(glm::vec3(0.0f, obstacleSize.y/2, -5.0f));
+        }
     }
 
     void startRagdoll() {
         enableRagdoll = true;
         posePhysicsBody.setPose(currentPose, poseTree);
         box.body.setKinematic(false);
+        // posePhysicsBody.applyImpulseAtRoot(glm::vec3(0, -0.5, 0));
     }
 
     void processInput(SDL_Event &event) override {
@@ -279,6 +301,7 @@ public:
                     isHoldingBox = true;
                 }
             }
+
             if (isHoldingBox) {
                 uint32_t leftHandIdx = poseTree.findIdx("LeftHand");
                 uint32_t rightHandIdx = poseTree.findIdx("RightHand");
@@ -306,6 +329,19 @@ public:
                                 poseTree.findIdx("RightArm"), poseTree.findIdx("RightForeArm"),
                                 poseTree.findIdx("RightHand"),
                                 boxRightPos);
+            }
+
+            // If feet meets the obstacle (which is just hardcoded right now instead of proper collision check),
+            // Then start ragdoll mode
+            if (enableObstacle) {
+                auto lfootTrans = calcFK(poseTree, currentPose, poseTree.findIdx("LeftFoot"));
+                auto rfootTrans = calcFK(poseTree, currentPose, poseTree.findIdx("RightFoot"));
+                auto obstaclePos = obstacle.body.getPosition();
+                lfootTrans.v.x = rfootTrans.v.x = obstaclePos.x = 0.0f;
+                if (glm::length(lfootTrans.v - obstaclePos) < 2 * obstacleSize.z ||
+                    glm::length(rfootTrans.v - obstaclePos) < 2 * obstacleSize.z) {
+                    startRagdoll();
+                }
             }
         }
 
@@ -359,7 +395,7 @@ public:
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        // pbRenderer.queueRender({groundMesh, groundMat, rootTransform->getWorldTransform()});
+        pbRenderer.queueRender({groundMesh, groundMat, rootTransform->getWorldTransform()});
         renderMotionClip(pbRenderer, imRenderer, currentPose, poseTree, poseRenderBody);
         // renderMotionClip(pbRenderer, imRenderer, convertedPose, poseTree, poseRenderBody2);
 
@@ -371,6 +407,10 @@ public:
             for (auto& sphere : spheres) {
                 pbRenderer.queueRender({sphere.mesh, sphere.material, glm::translate(sphere.body.getTransform().v)});
             }
+        }
+        if (enableObstacle) {
+            pbRenderer.queueRender({obstacle.mesh, obstacle.material,
+                                    glm::translate(obstacle.body.getPosition()) * glm::mat4_cast(obstacle.body.getRotation())});
         }
         pbRenderer.render();
 
@@ -447,6 +487,11 @@ private:
 
     PoseRenderBodyPBR poseRenderBody, poseRenderBody2;
 
+    Ref<Mesh> groundMesh;
+    Ref<PBRMaterial> groundMat;
+
+    PhysicsObject obstacle;
+
     PxFoundation* pxFoundation;
     PhysicsWorld world;
     PhysXDebugRenderer pxDebugRenderer;
@@ -461,6 +506,7 @@ private:
 
     glm::vec3 boxSize = {0.25f, 0.15f, 0.25f};
     float boxThickness = 0.025f;
+    glm::vec3 obstacleSize = {4.0f, 0.2f, 0.2f};
 
     PhysicsObject box;
     std::vector<PhysicsObject> spheres;
@@ -473,9 +519,10 @@ private:
 
     bool enableBox = true;
     bool enableSpheres = true;
+    bool enableObstacle = true;
 
     bool isHoldingBox = false;
-    bool isCameraFixed = true;
+    bool isCameraFixed = false;
 
     glm::vec3 boxLeftPos, boxRightPos;
 
