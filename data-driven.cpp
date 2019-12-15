@@ -104,7 +104,7 @@ public:
 
     void initAnim() {
 #if DEBUG_ANIM
-        bvh = MotionClipData::loadFromFile("resources/retargetted/111-36(pregnant_carry).bvh", 0.01f);
+        bvh = MotionClipData::loadFromFile("resources/retargetted/output.bvh", 0.01f);
         if (!bvh.valid) {
             fprintf(stderr, "BVH load failed!\n");
             exit(EXIT_FAILURE);
@@ -128,7 +128,7 @@ public:
         convertedPose = currentPose;
 
         auto idlePoses = std::vector<glmx::pose>(30, idleBVH.poseStates[0]);
-        auto walkPoses = nonstd::span<glmx::pose>(walkBVH.poseStates.data() + 1063, 138);
+        auto walkPoses = nonstd::span<glmx::pose>(walkBVH.poseStates.data() + 1032, 310);
 
         auto idleAnim = animFSM.addAnimation("idle", nonstd::span<glmx::pose>(idlePoses.data(), idlePoses.size()), 120);
         auto walkAnim = animFSM.addAnimation("walk", walkPoses, 120);
@@ -145,7 +145,7 @@ public:
 
         auto repeatIdleTrans = animFSM.addTransition("repeat_idle", idleState, idleState, 0.0f, 0.0f, 0.0f);
 
-        auto repeatWalkingTrans = animFSM.addTransition("repeat_walking", walkState, walkState, 0.1f, 0.1f, 0.1f);
+        auto repeatWalkingTrans = animFSM.addTransition("repeat_walking", walkState, walkState, 0.3f, 0.3f, 0.3f);
 
         auto startWalkingTrans = animFSM.addTransition("start_walking", idleState, walkState, 0.1f, 0.1f, 0.1f);
         animFSM.setTransitionCondition(startWalkingTrans, "is_walking", true);
