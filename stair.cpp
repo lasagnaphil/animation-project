@@ -278,6 +278,25 @@ public:
         }
     }
 
+    void startRagdoll() {
+        float dt = 1.0f / 120.0f;
+        enableRagdoll = true;
+        posePhysicsBody.setPose(currentPose, poseTree);
+
+        // Set velocity to articulated body (for more realism)
+        float t = animFSM.getStateTime();
+        glmx::pose beforePose = animFSM.getCurrentAnim().getFrame(t - dt);
+        beforePose.v.y += 0.11f;
+        posePhysicsBody.setPoseVelocityFromTwoPoses(beforePose, currentPose, dt);
+        box.body.setKinematic(false);
+
+        // To trip even more spectacularily, add some forces and torques
+        posePhysicsBody.applyImpulseTorqueAtRoot(glm::vec3(-0.0048, 0, 0));
+        posePhysicsBody.applyImpulseAtRoot(glm::vec3(0, -0.05, -0.061));
+        //posePhysicsBody.applyVelocityChangeAtRoot(glm::vec3(0, 0, -0.05));
+        box.body.body->addTorque(PxVec3(-0.05, 0, 0), PxForceMode::eIMPULSE, true);
+    }
+
     void processInput(SDL_Event &event) override {
     }
 
@@ -296,6 +315,9 @@ public:
         if (inputMgr->isKeyEntered(SDL_SCANCODE_F1)) {
             enableDebugRendering = !enableDebugRendering;
         }
+        if (inputMgr->isKeyEntered(SDL_SCANCODE_RETURN)) {
+            startRagdoll();
+        }
         if(inputMgr->isKeyPressed(SDL_SCANCODE_DOWN)) {
             animFSM.setParam("is_climbing", true);
         }
@@ -305,62 +327,110 @@ public:
             animFSM.setParam("is_walking", false);
 
         // Update animation
-        animFSM.update(dt);
-        currentPose = animFSM.getCurrentPose();
+        if (!enableRagdoll) {
+            animFSM.update(dt);
+            currentPose = animFSM.getCurrentPose();
 
-        auto boxTrans = box.body.getTransform();
-        boxLeftPos = boxTrans.v - glm::vec3(boxSize.x + 0.02f, 0, 0);
-        boxRightPos = boxTrans.v + glm::vec3(boxSize.x + 0.02f, 0, 0);
-        boxLeftPos.y += 2 * boxSize.y;
-        boxRightPos.y += 2 * boxSize.y;
-
-        // If animation controller arrives at hard-coded state, then start holding the box
-        auto currentState = animFSM.getCurrentState();
-        if (currentState && animFSM.get(currentState)->name == "pickup") {
-            if (animFSM.getStateTime() >= 36.f / 30.f) {
-                isHoldingBox = true;
-            }
-        }
-        if (isHoldingBox) {
-            uint32_t leftHandIdx = poseTree.findIdx("LeftHand");
-            uint32_t rightHandIdx = poseTree.findIdx("RightHand");
-            auto leftHandTrans = calcFK(poseTree, currentPose, leftHandIdx);
-            auto rightHandTrans = calcFK(poseTree, currentPose, rightHandIdx);
-            glmx::transform boxTrans;
-            boxTrans.v.x = 0.5f * (leftHandTrans.v.x + rightHandTrans.v.x);
-            boxTrans.v.y = 0.5f * (leftHandTrans.v.y + rightHandTrans.v.y) - 2 * boxSize.y;
-            if (boxTrans.v.y < 0.0f) boxTrans.v.y = 0.0f;
-            boxTrans.v.z = currentPose.v.z - 0.4f;
-            float theta = atan2(rightHandTrans.v.z - leftHandTrans.v.z, rightHandTrans.v.x - leftHandTrans.v.x);
-            boxTrans.q = glm::rotate(-theta, glm::vec3(0, 1, 0));
-            boxLeftPos = boxTrans.v - boxTrans.q * glm::vec3(boxSize.x + 0.02f, 0, 0);
-            boxRightPos = boxTrans.v + boxTrans.q * glm::vec3(boxSize.x + 0.02f, 0, 0);
+            auto boxTrans = box.body.getTransform();
+            boxLeftPos = boxTrans.v - glm::vec3(boxSize.x + 0.02f, 0, 0);
+            boxRightPos = boxTrans.v + glm::vec3(boxSize.x + 0.02f, 0, 0);
             boxLeftPos.y += 2 * boxSize.y;
             boxRightPos.y += 2 * boxSize.y;
-            box.body.setTransform(boxTrans);
 
-            solveTwoJointIK(poseTree, currentPose,
-                            poseTree.findIdx("LeftArm"), poseTree.findIdx("LeftForeArm"),
-                            poseTree.findIdx("LeftHand"),
-                            boxLeftPos);
+            // If animation controller arrives at hard-coded state, then start holding the box
+            auto currentState = animFSM.getCurrentState();
+            if (currentState && animFSM.get(currentState)->name == "pickup") {
+                if (animFSM.getStateTime() >= 36.f / 30.f) {
+                    isHoldingBox = true;
+                }
+            }
 
-            solveTwoJointIK(poseTree, currentPose,
-                            poseTree.findIdx("RightArm"), poseTree.findIdx("RightForeArm"),
-                            poseTree.findIdx("RightHand"),
-                            boxRightPos);
-        }
+            if (isHoldingBox) {
+                uint32_t leftHandIdx = poseTree.findIdx("LeftHand");
+                uint32_t rightHandIdx = poseTree.findIdx("RightHand");
+                auto leftHandTrans = calcFK(poseTree, currentPose, leftHandIdx);
+                auto rightHandTrans = calcFK(poseTree, currentPose, rightHandIdx);
+                glmx::transform boxTrans;
+                boxTrans.v.x = 0.5f * (leftHandTrans.v.x + rightHandTrans.v.x);
+                boxTrans.v.y = 0.5f * (leftHandTrans.v.y + rightHandTrans.v.y) - 2 * boxSize.y;
+                if (boxTrans.v.y < 0.0f) boxTrans.v.y = 0.0f;
+                boxTrans.v.z = currentPose.v.z - 0.4f;
+                float theta = atan2(rightHandTrans.v.z - leftHandTrans.v.z, rightHandTrans.v.x - leftHandTrans.v.x);
+                boxTrans.q = glm::rotate(-theta, glm::vec3(0, 1, 0));
+                boxLeftPos = boxTrans.v - boxTrans.q * glm::vec3(boxSize.x + 0.02f, 0, 0);
+                boxRightPos = boxTrans.v + boxTrans.q * glm::vec3(boxSize.x + 0.02f, 0, 0);
+                boxLeftPos.y += 2 * boxSize.y;
+                boxRightPos.y += 2 * boxSize.y;
+                box.body.setTransform(boxTrans);
 
-        if (!hitStopZ && currentState && animFSM.get(currentState)->name == "walk") {
-            uint32_t rootIdx = poseTree.findIdx("Hips");
-            auto rootTrans = calcFK(poseTree, currentPose, rootIdx);    
-            static float stopZ = -4.18f;
+                solveTwoJointIK(poseTree, currentPose,
+                                poseTree.findIdx("LeftArm"), poseTree.findIdx("LeftForeArm"),
+                                poseTree.findIdx("LeftHand"),
+                                boxLeftPos);
 
-            if(rootTrans.v.z < stopZ) {
-                animFSM.setParam("is_walking", false);
-                hitStopZ = true;
+                solveTwoJointIK(poseTree, currentPose,
+                                poseTree.findIdx("RightArm"), poseTree.findIdx("RightForeArm"),
+                                poseTree.findIdx("RightHand"),
+                                boxRightPos);
+            }
+
+            if (!hitStopZ && currentState && animFSM.get(currentState)->name == "walk") {
+                uint32_t rootIdx = poseTree.findIdx("Hips");
+                auto rootTrans = calcFK(poseTree, currentPose, rootIdx);    
+                static float stopZ = -4.18f;
+
+                if(rootTrans.v.z < stopZ) {
+                    animFSM.setParam("is_walking", false);
+                    hitStopZ = true;
+                }
+            }
+
+            if(currentState && animFSM.get(currentState)->name == "climb") {
+                if(animFSM.getStateTime() >= 329.0f / 30.0f) {
+                    currentPose.v.y += 0.11f;
+                    
+                    // uint32_t leftFootIdx = poseTree.findIdx("LeftFoot");
+                    // uint32_t rightFootIdx = poseTree.findIdx("RightFoot");
+                    // auto leftFootTrans = calcFK(poseTree, currentPose, leftFootIdx);
+                    // auto rightFootTrans = calcFK(poseTree, currentPose, rightFootIdx);
+                    // glm::vec3 leftTarget = leftFootTrans.v;
+                    // glm::vec3 rightTarget = rightFootTrans.v;
+
+                    // leftTarget.y = 0.24;
+                    // rightTarget.y = 0.24;
+                    // solveTwoJointIK(poseTree, currentPose,
+                    //                 poseTree.findIdx("LeftUpLeg"), poseTree.findIdx("LeftLeg"),
+                    //                 poseTree.findIdx("LeftFoot"),
+                    //                 leftTarget);
+
+                    // solveTwoJointIK(poseTree, currentPose,
+                    //                 poseTree.findIdx("RightUpLeg"), poseTree.findIdx("RightLeg"),
+                    //                 poseTree.findIdx("RightFoot"),
+                    //                 rightTarget);
+
+                    // uint32_t leftFootEndIdx = poseTree.getChildIdx(leftFootIdx, "End Site");
+                    // uint32_t rightFootEndIdx = poseTree.getChildIdx(rightFootIdx, "End Site");
+                    // auto leftFootEndTrans = calcFK(poseTree, currentPose, leftFootEndIdx);
+                    // auto rightFootEndTrans = calcFK(poseTree, currentPose, rightFootEndIdx);
+                    // glm::vec3 leftTarget = leftFootEndTrans.v;
+                    // glm::vec3 rightTarget = rightFootEndTrans.v;
+
+                    // leftTarget.y = 0.24;
+                    // rightTarget.y = 0.24;
+                    // solveTwoJointIK(poseTree, currentPose,
+                    //                 poseTree.findIdx("LeftLeg"), poseTree.findIdx("LeftFoot"),
+                    //                 leftFootEndIdx,
+                    //                 leftTarget);
+
+                    // solveTwoJointIK(poseTree, currentPose,
+                    //                 poseTree.findIdx("RightLeg"), poseTree.findIdx("RightFoot"),
+                    //                 rightFootEndIdx,
+                    //                 rightTarget);
+
+                    startRagdoll();
+                }
             }
         }
-
 
         // Update physics
         while (time >= physicsDt) {
@@ -437,7 +507,7 @@ public:
             pxDebugRenderer.render(world);
         }
 
-        //renderImGui();
+        renderImGui();
     }
 
     void renderImGui() {
@@ -448,9 +518,10 @@ public:
         ImGui::Checkbox("Enable Manipulation", &enableManipulation);
         if (!enableManipulation) {
             if (ImGui::Button("Ragdoll")) {
-                enableRagdoll = true;
-                posePhysicsBody.getPose(convertedPose, poseTree);
-                posePhysicsBody.setPose(currentPose, poseTree);
+                startRagdoll();
+                //enableRagdoll = true;
+                // posePhysicsBody.getPose(convertedPose, poseTree);
+                // posePhysicsBody.setPose(currentPose, poseTree);
             }
             ImGui::SameLine();
             if (ImGui::Button("Reset")) {
