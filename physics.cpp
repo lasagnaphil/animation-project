@@ -90,7 +90,7 @@ public:
             box.mesh->indices.clear(); // We don't need the index buffer
             box.body = PhysicsBody::ourBox(world, boxSize.x, boxSize.y, boxSize.z, boxThickness,
                     world.physics->createMaterial(0.5f, 0.5f, 0.6f));
-            box.body.body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
+            box.body.setKinematic(true);
         }
         if (enableSpheres) {
             // Prepare the spheres
@@ -185,23 +185,19 @@ public:
         posePhysicsBody.init(world, poseTree, posePhysicsBodySkel);
         posePhysicsBody.setRoot(glmx::transform(glm::vec3(0.f, 0.9f, 0.f)));
 
-        // Now attach the box to the hands
-        /*
-        auto [leftHandJoint, rightHandJoint] = posePhysicsBody.attachBoxToHands(world, poseTree, box.body,
-                PxTransform(PxVec3(-boxSize.x/2, 0, 0)), PxTransform(PxVec3(boxSize.x/2, 0, 0)), 0.03f);
-                */
-
         reset();
     }
 
     void reset() {
         enableRagdoll = false;
+        isHoldingBox = false;
         animFSM.setCurrentState(pickupState);
         currentPose = animFSM.getCurrentPose();
 
         posePhysicsBody.setPose(currentPose, poseTree);
 
         if (enableBox) {
+            box.body.setKinematic(true);
             auto pickupPose = animFSM.getCurrentAnim().poses[startPickupFrameIdx];
             auto leftHandTrans = calcFK(poseTree, pickupPose, poseTree.findIdx("LeftHand"));
             auto rightHandTrans = calcFK(poseTree, pickupPose, poseTree.findIdx("RightHand"));
@@ -209,9 +205,9 @@ public:
             boxTrans.v.x = 0.5f * (leftHandTrans.v.x + rightHandTrans.v.x);
             boxTrans.v.y = 0.0f;
             boxTrans.v.z = pickupPose.v.z - 0.4f;
-            boxTrans.q = glm::identity<glm::quat>();
+            float theta = atan2(rightHandTrans.v.z - leftHandTrans.v.z, rightHandTrans.v.x - leftHandTrans.v.x);
+            boxTrans.q = glm::rotate(-theta, glm::vec3(0, 1, 0));
             box.body.setTransform(boxTrans);
-
             box.body.setLinearVelocity({});
             box.body.setAngularVelocity({});
         }
@@ -234,6 +230,12 @@ public:
         }
     }
 
+    void startRagdoll() {
+        enableRagdoll = true;
+        posePhysicsBody.setPose(currentPose, poseTree);
+        box.body.setKinematic(false);
+    }
+
     void processInput(SDL_Event &event) override {
     }
 
@@ -243,6 +245,7 @@ public:
 
         time += dt;
 
+
         auto inputMgr = InputManager::get();
         if (inputMgr->isKeyEntered(SDL_SCANCODE_SPACE)) {
             enablePhysics = !enablePhysics;
@@ -250,55 +253,60 @@ public:
         if (inputMgr->isKeyEntered(SDL_SCANCODE_F1)) {
             enableDebugRendering = !enableDebugRendering;
         }
+        if (inputMgr->isKeyEntered(SDL_SCANCODE_RETURN)) {
+            startRagdoll();
+        }
         if (inputMgr->isKeyPressed(SDL_SCANCODE_UP))
             animFSM.setParam("is_walking", true);
         else
             animFSM.setParam("is_walking", false);
 
         // Update animation
-        animFSM.update(dt);
-        currentPose = animFSM.getCurrentPose();
+        if (!enableRagdoll) {
+            animFSM.update(dt);
+            currentPose = animFSM.getCurrentPose();
 
-        auto boxTrans = box.body.getTransform();
-        boxLeftPos = boxTrans.v - glm::vec3(boxSize.x + 0.02f, 0, 0);
-        boxRightPos = boxTrans.v + glm::vec3(boxSize.x + 0.02f, 0, 0);
-        boxLeftPos.y += 2 * boxSize.y;
-        boxRightPos.y += 2 * boxSize.y;
-
-        // If animation controller arrives at hard-coded state, then start holding the box
-        auto currentState = animFSM.getCurrentState();
-        if (currentState && animFSM.get(currentState)->name == "pickup") {
-            if (animFSM.getStateTime() >= 36.f / 30.f) {
-                isHoldingBox = true;
-            }
-        }
-        if (isHoldingBox) {
-            uint32_t leftHandIdx = poseTree.findIdx("LeftHand");
-            uint32_t rightHandIdx = poseTree.findIdx("RightHand");
-            auto leftHandTrans = calcFK(poseTree, currentPose, leftHandIdx);
-            auto rightHandTrans = calcFK(poseTree, currentPose, rightHandIdx);
-            glmx::transform boxTrans;
-            boxTrans.v.x = 0.5f * (leftHandTrans.v.x + rightHandTrans.v.x);
-            boxTrans.v.y = 0.5f * (leftHandTrans.v.y + rightHandTrans.v.y) - 2 * boxSize.y;
-            if (boxTrans.v.y < 0.0f) boxTrans.v.y = 0.0f;
-            boxTrans.v.z = currentPose.v.z - 0.4f;
-            float theta = atan2(rightHandTrans.v.z - leftHandTrans.v.z, rightHandTrans.v.x - leftHandTrans.v.x);
-            boxTrans.q = glm::rotate(-theta, glm::vec3(0, 1, 0));
-            boxLeftPos = boxTrans.v - boxTrans.q * glm::vec3(boxSize.x + 0.02f, 0, 0);
-            boxRightPos = boxTrans.v + boxTrans.q * glm::vec3(boxSize.x + 0.02f, 0, 0);
+            auto boxTrans = box.body.getTransform();
+            boxLeftPos = boxTrans.v - glm::vec3(boxSize.x + 0.02f, 0, 0);
+            boxRightPos = boxTrans.v + glm::vec3(boxSize.x + 0.02f, 0, 0);
             boxLeftPos.y += 2 * boxSize.y;
             boxRightPos.y += 2 * boxSize.y;
-            box.body.setTransform(boxTrans);
 
-            solveTwoJointIK(poseTree, currentPose,
-                            poseTree.findIdx("LeftArm"), poseTree.findIdx("LeftForeArm"),
-                            poseTree.findIdx("LeftHand"),
-                            boxLeftPos);
+            // If animation controller arrives at hard-coded state, then start holding the box
+            auto currentState = animFSM.getCurrentState();
+            if (currentState && animFSM.get(currentState)->name == "pickup") {
+                if (animFSM.getStateTime() >= 36.f / 30.f) {
+                    isHoldingBox = true;
+                }
+            }
+            if (isHoldingBox) {
+                uint32_t leftHandIdx = poseTree.findIdx("LeftHand");
+                uint32_t rightHandIdx = poseTree.findIdx("RightHand");
+                auto leftHandTrans = calcFK(poseTree, currentPose, leftHandIdx);
+                auto rightHandTrans = calcFK(poseTree, currentPose, rightHandIdx);
+                glmx::transform boxTrans;
+                boxTrans.v.x = 0.5f * (leftHandTrans.v.x + rightHandTrans.v.x);
+                boxTrans.v.y = 0.5f * (leftHandTrans.v.y + rightHandTrans.v.y) - 2 * boxSize.y;
+                if (boxTrans.v.y < 0.0f) boxTrans.v.y = 0.0f;
+                boxTrans.v.z = currentPose.v.z - 0.4f;
+                float theta = atan2(rightHandTrans.v.z - leftHandTrans.v.z, rightHandTrans.v.x - leftHandTrans.v.x);
+                boxTrans.q = glm::rotate(-theta, glm::vec3(0, 1, 0));
+                boxLeftPos = boxTrans.v - boxTrans.q * glm::vec3(boxSize.x + 0.02f, 0, 0);
+                boxRightPos = boxTrans.v + boxTrans.q * glm::vec3(boxSize.x + 0.02f, 0, 0);
+                boxLeftPos.y += 2 * boxSize.y;
+                boxRightPos.y += 2 * boxSize.y;
+                box.body.setTransform(boxTrans);
 
-            solveTwoJointIK(poseTree, currentPose,
-                            poseTree.findIdx("RightArm"), poseTree.findIdx("RightForeArm"),
-                            poseTree.findIdx("RightHand"),
-                            boxRightPos);
+                solveTwoJointIK(poseTree, currentPose,
+                                poseTree.findIdx("LeftArm"), poseTree.findIdx("LeftForeArm"),
+                                poseTree.findIdx("LeftHand"),
+                                boxLeftPos);
+
+                solveTwoJointIK(poseTree, currentPose,
+                                poseTree.findIdx("RightArm"), poseTree.findIdx("RightForeArm"),
+                                poseTree.findIdx("RightHand"),
+                                boxRightPos);
+            }
         }
 
         // Update physics
@@ -333,6 +341,16 @@ public:
                     }
                 }
             }
+        }
+
+        // Update the camera
+        if (isCameraFixed) {
+            FlyCamera* flyCamera = dynamic_cast<FlyCamera*>(camera.get());
+            glm::vec3 cameraPos = currentPose.v;
+            cameraPos.y += 0.7f;
+            cameraPos.x += 2.5f;
+            flyCamera->transform->setPosition(cameraPos);
+            flyCamera->transform->setRotation(glm::rotate((float)M_PI/2, glm::vec3(0, 1, 0)));
         }
     }
 
@@ -376,6 +394,7 @@ public:
         renderImGui();
     }
 
+
     void renderImGui() {
         animFSM.renderImGui(poseTree);
 
@@ -384,9 +403,7 @@ public:
         ImGui::Checkbox("Enable Manipulation", &enableManipulation);
         if (!enableManipulation) {
             if (ImGui::Button("Ragdoll")) {
-                enableRagdoll = true;
-                posePhysicsBody.getPose(convertedPose, poseTree);
-                posePhysicsBody.setPose(currentPose, poseTree);
+                startRagdoll();
             }
             ImGui::SameLine();
             if (ImGui::Button("Reset")) {
@@ -458,6 +475,7 @@ private:
     bool enableSpheres = true;
 
     bool isHoldingBox = false;
+    bool isCameraFixed = true;
 
     glm::vec3 boxLeftPos, boxRightPos;
 

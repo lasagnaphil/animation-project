@@ -200,6 +200,10 @@ struct PhysicsBody {
     void setAngularVelocity(glm::vec3 w, bool autowake = true) {
         return body->setAngularVelocity(GLMToPx(w), autowake);
     }
+
+    void setKinematic(bool enable) {
+        body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, enable);
+    }
 };
 
 #endif //ANIMATION_PROJECT_PHYSICSBODY_H
