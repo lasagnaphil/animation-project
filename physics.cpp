@@ -141,8 +141,8 @@ public:
         }
 
         // Prepare motion clip
-        pickupBVH = MotionClipData::loadFromFile("resources/retargetted/111-17(pregnant_pick_up).bvh", 0.01f);
-        auto walkBVH = MotionClipData::loadFromFile("resources/retargetted/111-36(pregnant_carry).bvh", 0.01f);
+        pickupBVH = MotionClipData::loadFromFile("resources/retargetted/111-17(pregnant_pick_up)_physics.bvh", 0.01f);
+        auto walkBVH = MotionClipData::loadFromFile("resources/retargetted/111-36(pregnant_carry)_physics.bvh", 0.01f);
 
         //bvh = walkBVH;
 
@@ -221,7 +221,7 @@ public:
 
         if (enableBox) {
             box.body.setKinematic(true);
-            auto pickupPose = animFSM.getCurrentAnim().poses[startPickupFrameIdx];
+            auto pickupPose = animFSM.getCurrentAnim().getFrame(1.635f);
             auto leftHandTrans = calcFK(poseTree, pickupPose, poseTree.findIdx("LeftHand"));
             auto rightHandTrans = calcFK(poseTree, pickupPose, poseTree.findIdx("RightHand"));
             glmx::transform boxTrans;
@@ -511,7 +511,6 @@ private:
     MotionClipData pickupBVH;
     AnimStateMachine animFSM;
     Ref<AnimState> pickupState;
-    uint32_t startPickupFrameIdx = 36;
 
     PoseRenderBodyPBR poseRenderBody;
     PoseRenderBodyPBR poseRenderBodySimple;
