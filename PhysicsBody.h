@@ -40,33 +40,34 @@ struct PhysicsBody {
                                 glm::quat rot = glm::identity<glm::quat>(),
                                 glm::vec3 scale = glm::vec3(1.0f)) {
         PhysicsBody prim;
-        
-        PxShape* floor = world.physics->createShape(PxBoxGeometry(x, y, thickness), *mat, true);
-        PxTransform fLocalTm(GLMToPx(glm::vec3{ x, y, thickness }), GLMToPx(rot));
+
+        glm::vec3 offset = {x, 0, z};
+        PxShape* floor = world.physics->createShape(PxBoxGeometry(x, thickness, z), *mat, true);
+        PxTransform fLocalTm(GLMToPx(glm::vec3{ x, thickness, z } - offset));
         floor->setLocalPose(fLocalTm);
         defer{ floor->release(); };
         //floor->setFlag(PxShapeFlag::eVISUALIZATION, true);
 
-        PxShape* xDown = world.physics->createShape(PxBoxGeometry(thickness, y, (z - thickness)), *mat, true);
-        PxTransform fLocalTm2(GLMToPx(glm::vec3{ thickness, y, z + thickness }), GLMToPx(rot));
+        PxShape* xDown = world.physics->createShape(PxBoxGeometry(thickness, y - thickness, z), *mat, true);
+        PxTransform fLocalTm2(GLMToPx(glm::vec3{ thickness, y + thickness, z } - offset));
         xDown->setLocalPose(fLocalTm2);
         defer{ xDown->release(); };
         //xDown->setFlag(PxShapeFlag::eVISUALIZATION, true);
 
-        PxShape* xUp = world.physics->createShape(PxBoxGeometry(thickness, y, (z - thickness)), *mat, true);
-        PxTransform fLocalTm3(GLMToPx(glm::vec3{ 2 * x - thickness, y, z + thickness }), GLMToPx(rot));
+        PxShape* xUp = world.physics->createShape(PxBoxGeometry(thickness, y - thickness, z), *mat, true);
+        PxTransform fLocalTm3(GLMToPx(glm::vec3{ 2 * x - thickness, y + thickness, z } - offset));
         xUp->setLocalPose(fLocalTm3);
         defer{ xUp->release(); };
         //xUp->setFlag(PxShapeFlag::eVISUALIZATION, true);
 
-        PxShape* yDown = world.physics->createShape(PxBoxGeometry(x - thickness, thickness, z - thickness), *mat, true);
-        PxTransform fLocalTm4(GLMToPx(glm::vec3{ x + thickness, thickness, z + thickness }), GLMToPx(rot));
+        PxShape* yDown = world.physics->createShape(PxBoxGeometry(x - thickness, y - thickness, thickness), *mat, true);
+        PxTransform fLocalTm4(GLMToPx(glm::vec3{ x + thickness, y + thickness, thickness } - offset));
         yDown->setLocalPose(fLocalTm4);
         defer{ yDown->release(); };
         //yDown->setFlag(PxShapeFlag::eVISUALIZATION, true);
 
-        PxShape* yUp = world.physics->createShape(PxBoxGeometry(x - thickness, thickness, z - thickness), *mat, true);
-        PxTransform fLocalTm5(GLMToPx(glm::vec3{ x + thickness, 2 * y - thickness, z + thickness }), GLMToPx(rot));
+        PxShape* yUp = world.physics->createShape(PxBoxGeometry(x - thickness, y - thickness, thickness), *mat, true);
+        PxTransform fLocalTm5(GLMToPx(glm::vec3{ x + thickness, y + thickness, 2 * z - thickness } - offset));
         yUp->setLocalPose(fLocalTm5);
         defer{ yUp->release(); };
         //yUp->setFlag(PxShapeFlag::eVISUALIZATION, true);

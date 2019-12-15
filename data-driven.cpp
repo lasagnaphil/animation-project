@@ -196,9 +196,9 @@ public:
 
         // box
         box.body.setTransform(glmx::transform(
-            boxPos, 
+            boxPos,
             glm::angleAxis((float)(-M_PI / 2.0), glm::vec3(1, 0, 0))));
-        
+
         box.body.setLinearVelocity({});
         box.body.setAngularVelocity({});
     }
@@ -247,7 +247,7 @@ public:
                     glm::vec3 rootPos = currentPose.getRoot().v;
                     glm::vec3 boxPos = rootPos + glm::vec3(0.0f, 0.0f, 0.2f);
                     glm::vec3 boxOffset = boxPos - box.body.getPosition();
-                    
+
                     box.body.setPosition(boxPos);
 
                     // Also move spheres...
