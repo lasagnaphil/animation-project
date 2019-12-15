@@ -9,6 +9,7 @@
 #include "PhysXDebugRenderer.h"
 #include "MotionClipData.h"
 #include "MotionClipPlayer.h"
+#include "PoseKinematics.h"
 
 PxDefaultAllocator gAllocator = {};
 PxDefaultErrorCallback gErrorCallback = {};
@@ -64,6 +65,9 @@ public:
         }
         world.init(pxFoundation, 1);
 
+        pxDebugRenderer.init(world);
+        pxDebugRenderer.setCamera(camera);
+
         // Prepare the ground
 
         Ref<PBRMaterial> groundMat = PBRMaterial::quick(
@@ -76,15 +80,15 @@ public:
 
         // Prepare the box
         if (enableBox) {
-            glm::vec3 boxSize = {0.5f, 0.5f, 0.5f};
-            // box.mesh = Mesh::makeCube(boxSize);
-            box.mesh = Mesh::fromOBJFile("resources/box.obj");
+            box.mesh = Mesh::makeCube(boxSize);
+            // box.mesh = Mesh::fromOBJFile("resources/box_edited.obj");
             box.material = Resources::make<PBRMaterial>();
             box.material->texAlbedo = Texture::fromSingleColor(glm::vec3(0.4f));
             box.material->texAO = Texture::fromSingleColor(glm::vec3(1.0f, 0.0f, 0.0f));
             box.material->texMetallic = Texture::fromSingleColor(glm::vec3(0.5f, 0.0f, 0.0f));
             box.material->texRoughness = Texture::fromSingleColor(glm::vec3(0.5f, 0.0f, 0.0f));
             box.mesh->indices.clear(); // We don't need the index buffer
+            /*
             auto collider = box.mesh->generateCollider();
             auto bodyOpt = PhysicsBody::fromMesh(world, collider, world.physics->createMaterial(0.5f, 0.5f, 0.6f));
             if (!bodyOpt) {
@@ -92,7 +96,12 @@ public:
                 exit(EXIT_FAILURE);
             }
             box.body = *bodyOpt;
+             */
+            box.body = PhysicsBody::box(world, world.physics->createMaterial(0.5f, 0.5f, 0.6f), 1.0f,
+                    {}, glm::identity<glm::quat>(), boxSize);
+            // box.body.body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
 
+            box.body.body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
         }
         if (enableSpheres) {
             // Prepare the spheres
@@ -117,16 +126,16 @@ public:
 
             spheres.resize(sphereCount);
             for (int i = 0; i < sphereCount; i++) {
-                spheres[i].body = PhysicsBody::sphere(world, world.physics->createMaterial(0.5f, 0.5f, 0.6f), {}, sphereRadius);
+                spheres[i].body = PhysicsBody::sphere(world, world.physics->createMaterial(0.5f, 0.5f, 0.6f), 0.5f,
+                        {}, sphereRadius);
                 spheres[i].mesh = sphereMesh;
                 spheres[i].material = sphereMats[i % sphereColorsCount];
-
             }
         }
 
         // Prepare motion clip
 
-        bvh = MotionClipData::loadFromFile("resources/127_25_1.bvh", 0.01f);
+        bvh = MotionClipData::loadFromFile("resources/retargetted/111-17(pregnant_pick_up).bvh", 0.01f);
         if (!bvh.valid) {
             fprintf(stderr, "BVH load failed!\n");
             exit(EXIT_FAILURE);
@@ -161,8 +170,11 @@ public:
         posePhysicsBody.init(world, poseTree, posePhysicsBodySkel);
         posePhysicsBody.setRoot(glmx::transform(glm::vec3(0.f, 0.9f, 0.f)));
 
-        pxDebugRenderer.init(world);
-        pxDebugRenderer.setCamera(camera);
+        // Now attach the box to the hands
+        /*
+        auto [leftHandJoint, rightHandJoint] = posePhysicsBody.attachBoxToHands(world, poseTree, box.body,
+                PxTransform(PxVec3(-boxSize.x/2, 0, 0)), PxTransform(PxVec3(boxSize.x/2, 0, 0)), 0.03f);
+                */
 
         reset();
     }
@@ -174,8 +186,9 @@ public:
         posePhysicsBody.setPose(currentPose, poseTree);
 
         if (enableBox) {
-            box.body.setTransform(
-                    glmx::transform(glm::vec3(0.0f, 0.0f, 0.0f), glm::angleAxis((float)-M_PI/2, glm::vec3(1, 0, 0))));
+            box.body.setPosition(glm::vec3(0.4f, 0.0f, 0.4f));
+            box.body.setLinearVelocity({});
+            box.body.setAngularVelocity({});
         }
 
         if (enableSpheres) {
@@ -202,12 +215,15 @@ public:
         if (inputMgr->isKeyEntered(SDL_SCANCODE_SPACE)) {
             enablePhysics = !enablePhysics;
         }
+        if (inputMgr->isKeyEntered(SDL_SCANCODE_F1)) {
+            enableDebugRendering = !enableDebugRendering;
+        }
         motionClipPlayer.update(dt);
         while (time >= physicsDt) {
             time -= physicsDt;
 
             if (enableManipulation) {
-                posePhysicsBody.setPose(currentPose, poseTree, true);
+                posePhysicsBody.setPose(currentPose, poseTree);
                 if (enablePhysics) {
                     bool advanced = world.advance(physicsDt);
                     if (advanced) {
@@ -224,20 +240,42 @@ public:
                     }
                 }
                 posePhysicsBody.getPose(currentPose, poseTree);
-                // posePhysicsBody.getPose(convertedPose, poseTree);
             }
             else {
                 currentPose = motionClipPlayer.getPoseState();
-                posePhysicsBody.setPose(currentPose, poseTree, true);
+                uint32_t leftHandIdx = poseTree.findIdx("LeftHand");
+                uint32_t rightHandIdx = poseTree.findIdx("RightHand");
+                uint32_t leftRelevantIndices[] = {
+                        poseTree.findIdx("LeftArm"), poseTree.findIdx("LeftForeArm")
+                };
+                uint32_t rightRelevantIndices[] = {
+                        poseTree.findIdx("RightArm"), poseTree.findIdx("RightForeArm")
+                };
+                auto leftHandTrans = calcFK(poseTree, currentPose, leftHandIdx);
+                auto rightHandTrans = calcFK(poseTree, currentPose, rightHandIdx);
+                glmx::transform boxTrans;
+                boxTrans.v.x = 0.5f * (leftHandTrans.v.x + rightHandTrans.v.x);
+                boxTrans.v.y = 0.5f * (leftHandTrans.v.y + rightHandTrans.v.y);
+                boxTrans.v.z = currentPose.v.z - 0.4f;
+                boxTrans.q = glm::identity<glm::quat>();
+                boxLeftPos = boxTrans.v - glm::rotate(boxTrans.q, {boxSize.x / 2, 0, 0});
+                boxRightPos = boxTrans.v + glm::rotate(boxTrans.q, {boxSize.x / 2, 0, 0});
+                box.body.setTransform(boxTrans);
 
-                /*
+                solveTwoJointIK(poseTree, currentPose,
+                                poseTree.findIdx("LeftArm"), poseTree.findIdx("LeftForeArm"), poseTree.findIdx("LeftHand"),
+                                boxLeftPos);
+
+                solveTwoJointIK(poseTree, currentPose,
+                                poseTree.findIdx("RightArm"), poseTree.findIdx("RightForeArm"), poseTree.findIdx("RightHand"),
+                                boxRightPos);
+
+                posePhysicsBody.setPose(currentPose, poseTree);
+
                 bool advanced = world.advance(physicsDt);
                 if (advanced) {
                     world.fetchResults();
                 }
-
-                posePhysicsBody.getPose(convertedPose, poseTree);
-                 */
             }
         }
     }
@@ -249,10 +287,11 @@ public:
 
         // pbRenderer.queueRender({groundMesh, groundMat, rootTransform->getWorldTransform()});
         renderMotionClip(pbRenderer, imRenderer, currentPose, poseTree, poseRenderBody);
-        renderMotionClip(pbRenderer, imRenderer, convertedPose, poseTree, poseRenderBody2);
+        // renderMotionClip(pbRenderer, imRenderer, convertedPose, poseTree, poseRenderBody2);
 
         if (enableBox) {
-            pbRenderer.queueRender({box.mesh, box.material, glmx::mat4_cast(box.body.getTransform())});
+            auto boxTrans = box.body.getTransform();
+            pbRenderer.queueRender({box.mesh, box.material, glm::translate(boxTrans.v) * glm::mat4_cast(boxTrans.q)});
         }
         if (enableSpheres) {
             for (auto& sphere : spheres) {
@@ -261,14 +300,22 @@ public:
         }
         pbRenderer.render();
 
-        imRenderer.drawPoint(pbRenderer.pointLights[0].position, colors::Yellow, 4.0f, true);
-        imRenderer.drawPoint(pbRenderer.pointLights[1].position, colors::Yellow, 4.0f, true);
+        // imRenderer.drawPoint(pbRenderer.pointLights[0].position, colors::Yellow, 4.0f, true);
+        // imRenderer.drawPoint(pbRenderer.pointLights[1].position, colors::Yellow, 4.0f, true);
         // imRenderer.drawPoint(pbRenderer.pointLights[2].position, colors::Yellow, 4.0f, true);
         // imRenderer.drawPoint(pbRenderer.pointLights[3].position, colors::Yellow, 4.0f, true);
         imRenderer.drawAxisTriad(glm::mat4(1.0f), 0.1f, 1.0f, false);
+        imRenderer.drawSphere(boxLeftPos, colors::Blue, 0.05f, true);
+        imRenderer.drawSphere(boxRightPos, colors::Blue, 0.05f, true);
+        glm::vec3 leftHandPos = calcFK(poseTree, currentPose, poseTree.findIdx("LeftHand")).v;
+        glm::vec3 rightHandPos = calcFK(poseTree, currentPose, poseTree.findIdx("RightHand")).v;
+        imRenderer.drawSphere(leftHandPos, colors::Green, 0.05f, true);
+        imRenderer.drawSphere(rightHandPos, colors::Green, 0.05f, true);
         imRenderer.render();
 
-        pxDebugRenderer.render(world);
+        if (enableDebugRendering) {
+            pxDebugRenderer.render(world);
+        }
 
         motionClipPlayer.renderImGui();
 
@@ -318,7 +365,6 @@ public:
 private:
     const int N = 7;
 
-
     glmx::pose currentPose, convertedPose;
     PoseTree poseTree;
     MotionClipData bvh;
@@ -336,8 +382,12 @@ private:
     const float sphereRadius = 0.025f;
     const float sphereDist = 0.001f;
 
+    glm::vec3 boxSize = {0.3f, 0.3f, 0.3f};
+
     PhysicsObject box;
     std::vector<PhysicsObject> spheres;
+
+    bool enableDebugRendering = true;
 
     bool enableRagdoll = false;
     bool enableManipulation = false;
@@ -345,6 +395,8 @@ private:
 
     bool enableBox = true;
     bool enableSpheres = false;
+
+    glm::vec3 boxLeftPos, boxRightPos;
 };
 
 int main(int argc, char** argv) {

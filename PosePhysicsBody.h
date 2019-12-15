@@ -8,6 +8,7 @@
 #include "PoseTree.h"
 #include "glmx/pose.h"
 #include "PosePhysicsBodySkel.h"
+#include "PhysicsBody.h"
 
 void separateSwingTwist(const PxQuat& q, PxQuat& twist, PxQuat& swing1, PxQuat& swing2)
 {
@@ -121,7 +122,7 @@ struct PosePhysicsBody {
             auto pxJoint = static_cast<PxArticulationJointReducedCoordinate*>(link->getInboundJoint());
             if (pxJoint) {
                 glmx::transform origin;
-                // PxQuat rot = PxShortestRotation(PxVec3(1.0f, 0.0f, 0.0f), GLMToPx(glm::normalize(-joint.xdir)));
+                // PxQuat rot = PxShortestRotation(PxVec3(1.0f, 0.0f, 0.0f), GLMToPx(glm::normalize(joint.jointTrans - parent.jointTrans)));
                 PxQuat rot = PxShortestRotation(PxVec3(1.0f, 0.0f, 0.0f), PxVec3(1.0f, 0.0f, 0.0f));
                 PxTransform pPose = PxTransform(GLMToPx(joint.jointTrans - parent.bodyTrans), rot);
                 PxTransform cPose = PxTransform(GLMToPx(joint.jointTrans - joint.bodyTrans), rot);
@@ -145,6 +146,30 @@ struct PosePhysicsBody {
                 }
             }
         }
+        /*
+        {
+            auto idx = poseTree.findIdx("LeftHand");
+            auto endIdx = poseTree[idx].childJoints[0];
+            PxArticulationLink *link = articulation->createLink(nodeToLink[idx],
+                                                                           PxTransform(PxVec3(-0.05f, 0, 0)));
+            link->setName("LeftHandEnd");
+            auto geom = PxBoxGeometry(PxVec3(0.05f, 0.05f, 0.05f));
+            PxShape *shape = PxRigidActorExt::createExclusiveShape(*link, geom, *world.defaultMaterial);
+            PxRigidBodyExt::updateMassAndInertia(*link, 0.1f);
+            nodeToLink[endIdx] = link;
+        }
+        {
+            auto idx = poseTree.findIdx("RightHand");
+            auto endIdx = poseTree[idx].childJoints[0];
+            PxArticulationLink *link = articulation->createLink(nodeToLink[idx],
+                                                                PxTransform(PxVec3(0.05f, 0, 0)));
+            link->setName("RightHandEnd");
+            auto geom = PxBoxGeometry(PxVec3(0.05f, 0.05f, 0.05f));
+            PxShape *shape = PxRigidActorExt::createExclusiveShape(*link, geom, *world.defaultMaterial);
+            PxRigidBodyExt::updateMassAndInertia(*link, 0.1f);
+            nodeToLink[endIdx] = link;
+        }
+         */
 
         aggregate = world.physics->createAggregate(articulation->getNbLinks(), false);
         aggregate->addArticulation(*articulation);
@@ -172,32 +197,37 @@ struct PosePhysicsBody {
         }
     }
 
-    void setPose(const glmx::pose& pose, const PoseTree& poseTree, bool setVelToZero = false) {
-        PxArticulationCacheFlags flags = PxArticulationCache::eROOT | PxArticulationCache::ePOSITION;
-        if (setVelToZero) {
-            flags |= PxArticulationCache::eVELOCITY;
-        }
-        articulation->copyInternalStateToCache(*cache, flags);
+    void setPose(const glmx::pose& pose, const PoseTree& poseTree) {
+        PxArticulationCacheFlags flags = PxArticulationCache::eALL;
+        // articulation->copyInternalStateToCache(*cache, flags);
+        articulation->zeroCache(*cache);
 
         cache->rootLinkData->transform = PxTransform(GLMToPx(pose.v), GLMToPx(pose.q[0]));
 
         for (uint32_t i = 1; i < pose.size(); i++) {
             glm::quat q = pose.q[i];
 
-            PxVec3 v = quatToTwistSwing(GLMToPx(pose.q[i]));
+            glm::vec3 v = glmx::quatToEuler(pose.q[i], EulOrdZYXs);
             uint32_t li = nodeToLink[i]->getLinkIndex();
-            cache->jointPosition[dofStarts[li]] = v.x;
-            cache->jointPosition[dofStarts[li] + 1] = v.y;
-            cache->jointPosition[dofStarts[li] + 2] = v.z;
-        }
-        if (setVelToZero) {
-            PxMemZero(cache->jointVelocity, sizeof(PxReal) * dofCount);
+            cache->jointPosition[dofStarts[li]] = -v.z;
+            cache->jointPosition[dofStarts[li] + 1] = -v.y;
+            cache->jointPosition[dofStarts[li] + 2] = -v.x;
         }
 
         articulation->applyCache(*cache, flags);
     }
 
     void getPose(glmx::pose& pose, const PoseTree& poseTree) {
+        pose.v = PxToGLM(nodeToLink[0]->getGlobalPose().p);
+        pose.q[0] = PxToGLM(nodeToLink[0]->getGlobalPose().q);
+
+        for (uint32_t i = 1; i < pose.size(); i++) {
+            PxArticulationLink* link = nodeToLink[i];
+            PxArticulationLink* parentLink = nodeToLink[poseTree[i].parent];
+            pose.q[i] = PxToGLM(parentLink->getGlobalPose().q.getConjugate() * link->getGlobalPose().q);
+        }
+
+        /*
         PxArticulationCacheFlags flags = PxArticulationCache::eROOT | PxArticulationCache::ePOSITION;
         articulation->copyInternalStateToCache(*cache, flags);
 
@@ -212,6 +242,7 @@ struct PosePhysicsBody {
             v.z = cache->jointPosition[dofStarts[li] + 2];
             pose.q[i] = PxToGLM(twistSwingToQuat(v));
         }
+        */
     }
 
     void setRoot(const glmx::transform& rootTrans) {
@@ -230,6 +261,29 @@ struct PosePhysicsBody {
 
     void wakeUp() {
         articulation->wakeUp();
+    }
+
+    std::tuple<PxDistanceJoint*, PxDistanceJoint*> attachBoxToHands(
+            PhysicsWorld& world, const PoseTree& poseTree, PhysicsBody& box,
+            PxTransform leftHandFrame, PxTransform rightHandFrame,
+            float maxDist) {
+
+        // uint32_t leftHandEndIdx = poseTree["LeftHand"]->childJoints[0];
+        // uint32_t rightHandEndIdx = poseTree["RightHand"]->childJoints[0];
+        uint32_t leftHandEndIdx = poseTree.findIdx("LeftHand");
+        uint32_t rightHandEndIdx = poseTree.findIdx("RightHand");
+        auto leftHandLink = nodeToLink[leftHandEndIdx];
+        auto rightHandLink = nodeToLink[rightHandEndIdx];
+        PxDistanceJoint* leftJoint = PxDistanceJointCreate(*world.physics, box.body, leftHandFrame, leftHandLink,
+                PxTransform(box.body->getGlobalPose().p - leftHandLink->getGlobalPose().p));
+        PxDistanceJoint* rightJoint = PxDistanceJointCreate(*world.physics, box.body, rightHandFrame, rightHandLink,
+                PxTransform(box.body->getGlobalPose().p - rightHandLink->getGlobalPose().p));
+        leftJoint->setMinDistance(0.0f);
+        leftJoint->setMaxDistance(maxDist);
+        rightJoint->setMinDistance(0.0f);
+        rightJoint->setMaxDistance(maxDist);
+
+        return {leftJoint, rightJoint};
     }
 
     void renderImGui() {

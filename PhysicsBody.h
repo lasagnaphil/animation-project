@@ -14,6 +14,7 @@ struct PhysicsBody {
 
     static PhysicsBody box(PhysicsWorld& world,
                            PxMaterial* mat,
+                           float density,
                            glm::vec3 pos = {},
                            glm::quat rot = glm::identity<glm::quat>(),
                            glm::vec3 size = glm::vec3(1.0f)) {
@@ -26,7 +27,7 @@ struct PhysicsBody {
         PxTransform localTm(GLMToPx(pos), GLMToPx(rot));
         prim.body = world.physics->createRigidDynamic(localTm);
         prim.body->attachShape(*shape);
-        PxRigidBodyExt::updateMassAndInertia(*prim.body, 10.0f);
+        PxRigidBodyExt::updateMassAndInertia(*prim.body, density);
         world.scene->addActor(*prim.body);
         
         return prim;
@@ -85,6 +86,7 @@ struct PhysicsBody {
 
     static PhysicsBody sphere(PhysicsWorld& world,
                               PxMaterial* mat,
+                              float density,
                               glm::vec3 pos = {},
                               float size = 1.0f) {
         PhysicsBody prim;
@@ -95,7 +97,7 @@ struct PhysicsBody {
         PxTransform localTm(GLMToPx(pos));
         prim.body = world.physics->createRigidDynamic(localTm);
         prim.body->attachShape(*shape);
-        PxRigidBodyExt::updateMassAndInertia(*prim.body, 10.0f);
+        PxRigidBodyExt::updateMassAndInertia(*prim.body, density);
         world.scene->addActor(*prim.body);
 
         return prim;
@@ -133,6 +135,14 @@ struct PhysicsBody {
             fprintf(stderr, "Error in MeshBody::fromMesh(): cooking triangle mesh failed\n");
             return {};
         }
+        if (result == PxTriangleMeshCookingResult::eFAILURE) {
+            fprintf(stderr, "Error in MeshBody::fromMesh(): cooking triangle mesh failed\n");
+            return {};
+        }
+        if (result == PxTriangleMeshCookingResult::eLARGE_TRIANGLE) {
+            fprintf(stderr, "Error in MeshBody::fromMesh(): large triangle\n");
+            return {};
+        }
 
         PxDefaultMemoryInputData readBuffer(writeBuffer.getData(), writeBuffer.getSize());
         PxTriangleMesh* triangleMesh = world.physics->createTriangleMesh(readBuffer);
@@ -142,6 +152,7 @@ struct PhysicsBody {
 
         auto geom = PxTriangleMeshGeometry(triangleMesh, GLMToPx(scale));
         auto shape = world.physics->createShape(geom, *mat);
+        shape->setFlag(PxShapeFlag::eVISUALIZATION, true);
         meshBody.body->attachShape(*shape);
         PxRigidBodyExt::updateMassAndInertia(*meshBody.body, 10.0f);
         world.scene->addActor(*meshBody.body);
