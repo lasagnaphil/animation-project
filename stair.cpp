@@ -278,7 +278,7 @@ public:
         }
     }
 
-    void startRagdoll() {
+    void startRagdoll(float offset) {
         float dt = 1.0f / 120.0f;
         enableRagdoll = true;
         posePhysicsBody.setPose(currentPose, poseTree);
@@ -286,15 +286,16 @@ public:
         // Set velocity to articulated body (for more realism)
         float t = animFSM.getStateTime();
         glmx::pose beforePose = animFSM.getCurrentAnim().getFrame(t - dt);
-        beforePose.v.y += 0.11f;
+        beforePose.v.y -= offset;
         posePhysicsBody.setPoseVelocityFromTwoPoses(beforePose, currentPose, dt);
         box.body.setKinematic(false);
 
         // To trip even more spectacularily, add some forces and torques
-        posePhysicsBody.applyImpulseTorqueAtRoot(glm::vec3(-0.0048, 0, 0));
-        posePhysicsBody.applyImpulseAtRoot(glm::vec3(0, -0.05, -0.061));
+        posePhysicsBody.applyImpulseTorqueAtRoot(glm::vec3(-0.002, 0, 0));
+        posePhysicsBody.applyImpulseAtRoot(glm::vec3(0, 0.014, -0.074));
         //posePhysicsBody.applyVelocityChangeAtRoot(glm::vec3(0, 0, -0.05));
         box.body.body->addTorque(PxVec3(-0.05, 0, 0), PxForceMode::eIMPULSE, true);
+        box.body.body->addForce(PxVec3(0, 0, -0.05), PxForceMode::eIMPULSE, true);
     }
 
     void processInput(SDL_Event &event) override {
@@ -316,7 +317,7 @@ public:
             enableDebugRendering = !enableDebugRendering;
         }
         if (inputMgr->isKeyEntered(SDL_SCANCODE_RETURN)) {
-            startRagdoll();
+            //startRagdoll();
         }
         if(inputMgr->isKeyPressed(SDL_SCANCODE_DOWN)) {
             animFSM.setParam("is_climbing", true);
@@ -387,10 +388,10 @@ public:
 
             if(currentState && animFSM.get(currentState)->name == "climb") {
                 if(animFSM.getStateTime() >= 329.0f / 30.0f) {
-                    currentPose.v.y += 0.11f;
+                    //currentPose.v.y += 0.11f;
                     
-                    // uint32_t leftFootIdx = poseTree.findIdx("LeftFoot");
-                    // uint32_t rightFootIdx = poseTree.findIdx("RightFoot");
+                    uint32_t leftFootIdx = poseTree.findIdx("LeftFoot");
+                    uint32_t rightFootIdx = poseTree.findIdx("RightFoot");
                     // auto leftFootTrans = calcFK(poseTree, currentPose, leftFootIdx);
                     // auto rightFootTrans = calcFK(poseTree, currentPose, rightFootIdx);
                     // glm::vec3 leftTarget = leftFootTrans.v;
@@ -408,15 +409,15 @@ public:
                     //                 poseTree.findIdx("RightFoot"),
                     //                 rightTarget);
 
-                    // uint32_t leftFootEndIdx = poseTree.getChildIdx(leftFootIdx, "End Site");
-                    // uint32_t rightFootEndIdx = poseTree.getChildIdx(rightFootIdx, "End Site");
-                    // auto leftFootEndTrans = calcFK(poseTree, currentPose, leftFootEndIdx);
-                    // auto rightFootEndTrans = calcFK(poseTree, currentPose, rightFootEndIdx);
-                    // glm::vec3 leftTarget = leftFootEndTrans.v;
-                    // glm::vec3 rightTarget = rightFootEndTrans.v;
+                    uint32_t leftFootEndIdx = poseTree.getChildIdx(leftFootIdx, "End Site");
+                    uint32_t rightFootEndIdx = poseTree.getChildIdx(rightFootIdx, "End Site");
+                    auto leftFootEndTrans = calcFK(poseTree, currentPose, leftFootEndIdx);
+                    auto rightFootEndTrans = calcFK(poseTree, currentPose, rightFootEndIdx);
+                    glm::vec3 leftTarget = leftFootEndTrans.v;
+                    glm::vec3 rightTarget = rightFootEndTrans.v;
 
-                    // leftTarget.y = 0.24;
-                    // rightTarget.y = 0.24;
+                    float offset = rightTarget.y - 0.23f;
+                    currentPose.v.y -= offset;
                     // solveTwoJointIK(poseTree, currentPose,
                     //                 poseTree.findIdx("LeftLeg"), poseTree.findIdx("LeftFoot"),
                     //                 leftFootEndIdx,
@@ -427,7 +428,7 @@ public:
                     //                 rightFootEndIdx,
                     //                 rightTarget);
 
-                    startRagdoll();
+                    startRagdoll(offset);
                 }
             }
         }
@@ -518,7 +519,7 @@ public:
         ImGui::Checkbox("Enable Manipulation", &enableManipulation);
         if (!enableManipulation) {
             if (ImGui::Button("Ragdoll")) {
-                startRagdoll();
+                //startRagdoll();
                 //enableRagdoll = true;
                 // posePhysicsBody.getPose(convertedPose, poseTree);
                 // posePhysicsBody.setPose(currentPose, poseTree);
