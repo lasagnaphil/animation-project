@@ -8,6 +8,7 @@
 #include <tinyxml2.h>
 
 #include <unordered_map>
+#include <PoseRenderBody.h>
 
 glm::vec3 stringToVec3(const char* str) {
     glm::vec3 v;
@@ -26,7 +27,7 @@ glm::mat3 stringToMat3(const char* str) {
 
 struct PosePhysicsBodySkel {
     enum class ShapeType {
-        Capsule, Cylinder, Sphere, Box
+        None, Capsule, Cylinder, Sphere, Box
     };
     struct CapsuleShape {
         glm::vec3 direction;
@@ -73,6 +74,7 @@ struct PosePhysicsBodySkel {
     std::string skeletonName;
     std::vector<Joint> joints;
     std::unordered_map<std::string, uint32_t> jointNameMapping;
+    std::unordered_map<uint32_t, uint32_t> bvhMapping;
 
     const Joint& getJoint(uint32_t idx) const {
         return joints[idx];
@@ -146,8 +148,10 @@ struct PosePhysicsBodySkel {
             XMLElement* jointPosNode = jointNode->FirstChildElement("JointPosition");
             joint.jointTrans = stringToVec3(jointPosNode->FindAttribute("translation")->Value());
 
+            bool shapeExists = false;
             XMLElement* capsuleNode = jointNode->FirstChildElement("Capsule");
             if (capsuleNode) {
+                shapeExists = true;
                 joint.shape.type = ShapeType::Capsule;
                 joint.shape.capsule.direction = stringToVec3(capsuleNode->FindAttribute("direction")->Value());
                 joint.shape.capsule.offset = findAttributeVec3(capsuleNode, "offset");
@@ -156,6 +160,7 @@ struct PosePhysicsBodySkel {
             }
             XMLElement* cylinderNode = jointNode->FirstChildElement("Cylinder");
             if (cylinderNode) {
+                shapeExists = true;
                 joint.shape.type = ShapeType::Cylinder;
                 joint.shape.cylinder.direction = stringToVec3(cylinderNode->FindAttribute("direction")->Value());
                 joint.shape.cylinder.offset = findAttributeVec3(cylinderNode, "offset");
@@ -164,18 +169,25 @@ struct PosePhysicsBodySkel {
             }
             XMLElement* sphereNode = jointNode->FirstChildElement("Sphere");
             if (sphereNode) {
+                shapeExists = true;
                 joint.shape.type = ShapeType::Box;
                 joint.shape.sphere.offset = findAttributeVec3(sphereNode, "offset");
                 joint.shape.sphere.radius = sphereNode->FindAttribute("radius")->FloatValue();
             }
             XMLElement* boxNode = jointNode->FirstChildElement("Box");
             if (boxNode) {
+                shapeExists = true;
                 joint.shape.type = ShapeType::Box;
                 joint.shape.box.offset = findAttributeVec3(boxNode, "offset");
                 joint.shape.box.size = stringToVec3(boxNode->FindAttribute("size")->Value());
             }
 
+            if (!shapeExists) {
+                joint.shape.type = ShapeType::None;
+            }
+
             map.jointNameMapping[joint.name] = jointIdx;
+            map.bvhMapping[joint.bvhIdx] = jointIdx;
 
             map.joints.push_back(joint);
             jointIdx++;
@@ -192,6 +204,62 @@ struct PosePhysicsBodySkel {
         return map;
     }
 };
+
+
+inline PoseRenderBodyPBR createFromSkel(const PoseTree& poseTree, PosePhysicsBodySkel& skel,
+                                        const std::vector<Ref<PBRMaterial>>& materials) {
+
+    assert(poseTree.numNodes == materials.size());
+    PoseRenderBodyPBR body;
+    body.materials = materials;
+
+    body.meshes.resize(poseTree.numNodes);
+    body.offsets.resize(poseTree.numNodes);
+    body.directions.resize(poseTree.numNodes);
+
+    for (int bvhIdx = 0; bvhIdx < poseTree.numNodes; bvhIdx++) {
+        if (skel.bvhMapping.count(bvhIdx)) {
+            uint32_t i = skel.bvhMapping[bvhIdx];
+            auto& shape = skel.joints[i].shape;
+            switch(shape.type) {
+                case PosePhysicsBodySkel::ShapeType::None: {
+                    body.meshes[i] = {};
+                    body.offsets[i] = {};
+                    body.directions[i] = {};
+                    break;
+                }
+                case PosePhysicsBodySkel::ShapeType::Box: {
+                    body.meshes[i] = Mesh::makeCube(shape.box.size);
+                    body.offsets[i] = shape.box.offset;
+                    body.directions[i] = {};
+                    break;
+                }
+                case PosePhysicsBodySkel::ShapeType::Capsule: {
+                    body.meshes[i] = Mesh::makeCapsule(shape.capsule.radius, shape.capsule.height);
+                    body.offsets[i] = shape.capsule.offset;
+                    body.directions[i] = shape.capsule.direction;
+                    break;
+                }
+                case PosePhysicsBodySkel::ShapeType::Cylinder: {
+                    body.meshes[i] = Mesh::makeCylinder(18, shape.cylinder.radius, shape.cylinder.height);
+                    body.offsets[i] = shape.cylinder.offset;
+                    body.directions[i] = shape.cylinder.direction;
+                    break;
+                }
+                case PosePhysicsBodySkel::ShapeType::Sphere: {
+                    body.meshes[i] = Mesh::makeSphere(shape.sphere.radius);
+                    body.offsets[i] = shape.sphere.offset;
+                    body.directions[i] = {};
+                    break;
+                }
+            }
+        }
+        else {
+            body.meshes[bvhIdx] = {};
+        }
+    }
+    return body;
+}
 
 
 #endif //ANIMATION_PROJECT_POSEPHYSICSBODYSKEL_H

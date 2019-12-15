@@ -44,24 +44,24 @@ public:
 
         pbRenderer.dirLight.enabled = true;
         pbRenderer.dirLight.direction = glm::normalize(glm::vec3 {2.0f, -3.0f, -2.0f});
-        pbRenderer.dirLight.color = {5.f, 5.f, 5.f};
+        pbRenderer.dirLight.color = {1.f, 1.f, 1.f};
 
-        /*
         pbRenderer.pointLights[0].enabled = true;
-        pbRenderer.pointLights[0].position = {-1.0f, -1.0f + 1.75f, 1.0f};
+        pbRenderer.pointLights[0].position = {-2.0f, 3.0f, -5.0f};
         pbRenderer.pointLights[0].color = {30.f, 30.f, 30.f};
 
         pbRenderer.pointLights[1].enabled = true;
-        pbRenderer.pointLights[1].position = {1.0f, -1.0f + 1.75f, 1.0f};
+        pbRenderer.pointLights[1].position = {2.0f, 3.0f, -5.0f};
         pbRenderer.pointLights[1].color = {30.f, 30.f, 30.f};
 
+        /*
         pbRenderer.pointLights[2].enabled = true;
         pbRenderer.pointLights[2].position = {-10.0f, 10.0f + 17.5f, 10.0f};
-        pbRenderer.pointLights[2].color = {300.f, 300.f, 300.f};
+        pbRenderer.pointLights[2].color = {30.f, 30.f, 30.f};
 
         pbRenderer.pointLights[3].enabled = true;
         pbRenderer.pointLights[3].position = {10.0f, 10.0f + 17.5f, 10.0f};
-        pbRenderer.pointLights[3].color = {300.f, 300.f, 300.f};
+        pbRenderer.pointLights[3].color = {30.f, 30.f, 30.f};
          */
 
         // Initialize the PhysX Engine
@@ -184,6 +184,11 @@ public:
 
         // Prepare the human body
 
+        posePhysicsBodySkel = PosePhysicsBodySkel::fromFile("resources/humanoid_complex_edited.xml", poseTree);
+        posePhysicsBody.init(world, poseTree, posePhysicsBodySkel);
+        posePhysicsBody.setRoot(glmx::transform(glm::vec3(0.f, 0.9f, 0.f)));
+
+
         Ref<PBRMaterial> poseBodyMat = Resources::make<PBRMaterial>();
         poseBodyMat->texAlbedo = Texture::fromSingleColor({0.5f, 0.0f, 0.0f});
         poseBodyMat->texAO = Texture::fromSingleColor({1.0f, 0.0f, 0.0f});
@@ -191,16 +196,17 @@ public:
                 Texture::fromSingleColor({0.5f, 0.0f, 0.0f});
         poseBodyMat->texRoughness =
                 Texture::fromSingleColor({0.5f, 0.0f, 0.0f});
+        poseRenderBodySimple = PoseRenderBodyPBR::createAsBoxes(poseTree, 0.02, poseBodyMat);
 
-        Ref<PBRMaterial> poseBodyMat2 = Resources::clone<PBRMaterial>(poseBodyMat);
-        poseBodyMat2->texAlbedo = Texture::fromSingleColor({0.0f, 0.5f, 0.0f});
-
-        poseRenderBody = PoseRenderBodyPBR::createAsBoxes(poseTree, 0.02f, poseBodyMat);
-        poseRenderBody2 = PoseRenderBodyPBR::createAsBoxes(poseTree, 0.02f, poseBodyMat2);
-
-        posePhysicsBodySkel = PosePhysicsBodySkel::fromFile("resources/humanoid_complex_edited.xml", poseTree);
-        posePhysicsBody.init(world, poseTree, posePhysicsBodySkel);
-        posePhysicsBody.setRoot(glmx::transform(glm::vec3(0.f, 0.9f, 0.f)));
+        std::vector<Ref<PBRMaterial>> mats(poseTree.numNodes);
+        for (int i = 0; i < poseTree.numNodes; i++) {
+            mats[i] = Resources::make<PBRMaterial>();
+            mats[i]->texAlbedo = Texture::fromSingleColor(colors::WhiteSmoke);
+            mats[i]->texAO = defaultAO;
+            mats[i]->texMetallic = Texture::fromSingleColor({0.8f, 0.0f, 0.0f});
+            mats[i]->texRoughness = Texture::fromSingleColor({0.8f, 0.0f, 0.0f});
+        }
+        poseRenderBody = PoseRenderBodyPBR::createFromSkel(poseTree, posePhysicsBodySkel, mats);
 
         reset();
     }
@@ -285,6 +291,10 @@ public:
         if (inputMgr->isKeyEntered(SDL_SCANCODE_F1)) {
             enableDebugRendering = !enableDebugRendering;
         }
+        if (inputMgr->isKeyEntered(SDL_SCANCODE_F2)) {
+            renderSimple = !renderSimple;
+        }
+
         if (inputMgr->isKeyEntered(SDL_SCANCODE_RETURN)) {
             startRagdoll();
         }
@@ -367,7 +377,7 @@ public:
                         world.fetchResults();
                     }
                 }
-                posePhysicsBody.getPose(convertedPose, poseTree);
+                // posePhysicsBody.getPose(convertedPose, poseTree);
             }
             else if (enableRagdoll) {
                 if (enablePhysics) {
@@ -406,8 +416,12 @@ public:
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         pbRenderer.queueRender({groundMesh, groundMat, rootTransform->getWorldTransform()});
-        renderMotionClip(pbRenderer, imRenderer, currentPose, poseTree, poseRenderBody);
-        // renderMotionClip(pbRenderer, imRenderer, convertedPose, poseTree, poseRenderBody2);
+        if (renderSimple) {
+            renderMotionClip(pbRenderer, imRenderer, currentPose, poseTree, poseRenderBodySimple);
+        }
+        else {
+            renderMotionClipComplex(pbRenderer, imRenderer, currentPose, poseTree, poseRenderBody);
+        }
 
         if (enableBox) {
             auto boxTrans = box.body.getTransform();
@@ -424,10 +438,12 @@ public:
         }
         pbRenderer.render();
 
-        // imRenderer.drawPoint(pbRenderer.pointLights[0].position, colors::Yellow, 4.0f, true);
-        // imRenderer.drawPoint(pbRenderer.pointLights[1].position, colors::Yellow, 4.0f, true);
-        // imRenderer.drawPoint(pbRenderer.pointLights[2].position, colors::Yellow, 4.0f, true);
-        // imRenderer.drawPoint(pbRenderer.pointLights[3].position, colors::Yellow, 4.0f, true);
+        for (int i = 0; i < pbRenderer.pointLights.size(); i++) {
+            if (pbRenderer.pointLights[i].enabled) {
+                imRenderer.drawPoint(pbRenderer.pointLights[i].position, colors::Yellow, 4.0f, true);
+            }
+        }
+
         if (enableDebugRendering) {
             imRenderer.drawAxisTriad(glm::mat4(1.0f), 0.1f, 1.0f, false);
             imRenderer.drawSphere(boxLeftPos, colors::Blue, 0.05f, true);
@@ -490,14 +506,15 @@ public:
 private:
     const int N = 7;
 
-    glmx::pose currentPose, convertedPose;
+    glmx::pose currentPose;
     PoseTree poseTree;
     MotionClipData pickupBVH;
     AnimStateMachine animFSM;
     Ref<AnimState> pickupState;
     uint32_t startPickupFrameIdx = 36;
 
-    PoseRenderBodyPBR poseRenderBody, poseRenderBody2;
+    PoseRenderBodyPBR poseRenderBody;
+    PoseRenderBodyPBR poseRenderBodySimple;
 
     Ref<Mesh> groundMesh;
     Ref<PBRMaterial> groundMat;
@@ -524,6 +541,7 @@ private:
     std::vector<PhysicsObject> spheres;
 
     bool enableDebugRendering = true;
+    bool renderSimple = false;
 
     bool enableRagdoll = false;
     bool enableManipulation = false;
@@ -536,9 +554,7 @@ private:
     bool isHoldingBox = false;
     bool isCameraFixed = true;
 
-
     glm::vec3 boxLeftPos, boxRightPos;
-
 };
 
 int main(int argc, char** argv) {
