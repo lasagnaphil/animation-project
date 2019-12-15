@@ -255,7 +255,7 @@ public:
         enableRagdoll = true;
         posePhysicsBody.setPose(currentPose, poseTree);
         box.body.setKinematic(false);
-        // posePhysicsBody.applyImpulseAtRoot(glm::vec3(0, -0.5, 0));
+        // posePhysicsBody.applyImpulseTorqueAtRoot(glm::vec3(-0.007, 0, 0));
     }
 
     void processInput(SDL_Event &event) override {
@@ -380,7 +380,7 @@ public:
         }
 
         // Update the camera
-        if (isCameraFixed) {
+        if (isCameraFixed && !enableRagdoll) {
             FlyCamera* flyCamera = dynamic_cast<FlyCamera*>(camera.get());
             glm::vec3 cameraPos = currentPose.v;
             cameraPos.y += 0.7f;
@@ -522,7 +522,7 @@ private:
     bool enableObstacle = true;
 
     bool isHoldingBox = false;
-    bool isCameraFixed = false;
+    bool isCameraFixed = true;
 
     glm::vec3 boxLeftPos, boxRightPos;
 

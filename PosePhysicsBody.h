@@ -146,6 +146,20 @@ struct PosePhysicsBody {
                 }
             }
         }
+
+        uint32_t legIndices[] = {
+                poseTree.findIdx("LeftUpLeg"), poseTree.findIdx("LeftLeg"),
+                poseTree.findIdx("RightUpLeg"), poseTree.findIdx("RightLeg"),};
+
+        /*
+        for (uint32_t nodeIdx : legIndices) {
+            auto pxJoint = static_cast<PxArticulationJointReducedCoordinate*>(nodeToLink[nodeIdx]->getInboundJoint());
+            pxJoint->setMotion(PxArticulationAxis::eSWING1, PxArticulationMotion::eLIMITED);
+            pxJoint->setLimit(PxArticulationAxis::eSWING1, 0, 0.9f * M_PI);
+            pxJoint->setMotion(PxArticulationAxis::eSWING2, PxArticulationMotion::eLIMITED);
+            pxJoint->setLimit(PxArticulationAxis::eSWING2, 0, 0.9f * M_PI);
+        }
+         */
         /*
         {
             auto idx = poseTree.findIdx("LeftHand");
@@ -286,8 +300,16 @@ struct PosePhysicsBody {
         return {leftJoint, rightJoint};
     }
 
+    void applyImpulseTorqueAtRoot(glm::vec3 impulse) {
+        nodeToLink[0]->addTorque(GLMToPx(impulse), PxForceMode::eIMPULSE, true);
+    }
+
     void applyImpulseAtRoot(glm::vec3 impulse) {
         nodeToLink[0]->addForce(GLMToPx(impulse), PxForceMode::eIMPULSE, true);
+    }
+
+    void applyVelocityChangeAtRoot(glm::vec3 velChange) {
+        nodeToLink[0]->addForce(GLMToPx(velChange), PxForceMode::eVELOCITY_CHANGE, true);
     }
 
     void renderImGui() {
