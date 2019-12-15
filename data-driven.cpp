@@ -12,7 +12,7 @@
 #include "AnimStateMachine.h"
 #include "Box.h"
 
-#define DEBUG_ANIM 1
+#define DEBUG_ANIM 0
 
 PxDefaultAllocator gAllocator = {};
 PxDefaultErrorCallback gErrorCallback = {};
