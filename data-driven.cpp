@@ -12,7 +12,7 @@
 #include "AnimStateMachine.h"
 #include "Box.h"
 
-#define DEBUG_ANIM 1
+#define DEBUG_ANIM 0
 
 PxDefaultAllocator gAllocator = {};
 PxDefaultErrorCallback gErrorCallback = {};
@@ -128,10 +128,10 @@ public:
         convertedPose = currentPose;
 
         auto idlePoses = std::vector<glmx::pose>(30, idleBVH.poseStates[0]);
-        auto walkPoses = nonstd::span<glmx::pose>(walkBVH.poseStates.data() + 1063, 138);
+        auto walkPoses = nonstd::span<glmx::pose>(walkBVH.poseStates.data() + 258, 87);
 
-        auto idleAnim = animFSM.addAnimation("idle", nonstd::span<glmx::pose>(idlePoses.data(), idlePoses.size()), 120);
-        auto walkAnim = animFSM.addAnimation("walk", walkPoses, 120);
+        auto idleAnim = animFSM.addAnimation("idle", nonstd::span<glmx::pose>(idlePoses.data(), idlePoses.size()), 60);
+        auto walkAnim = animFSM.addAnimation("walk", walkPoses, 60);
 
         for (Ref<Animation> anim : { idleAnim, walkAnim })
         {
@@ -145,7 +145,7 @@ public:
 
         auto repeatIdleTrans = animFSM.addTransition("repeat_idle", idleState, idleState, 0.0f, 0.0f, 0.0f);
 
-        auto repeatWalkingTrans = animFSM.addTransition("repeat_walking", walkState, walkState, 0.1f, 0.1f, 0.1f);
+        auto repeatWalkingTrans = animFSM.addTransition("repeat_walking", walkState, walkState, 0.2f, 0.2f, 0.2f);
 
         auto startWalkingTrans = animFSM.addTransition("start_walking", idleState, walkState, 0.1f, 0.1f, 0.1f);
         animFSM.setTransitionCondition(startWalkingTrans, "is_walking", true);
