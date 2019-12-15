@@ -93,10 +93,13 @@ public:
 
         spheres.resize(sphereCount);
         for (int i = 0; i < sphereCount; i++) {
-            spheres[i].body = PhysicsBody::sphere(world, world.physics->createMaterial(0.5f, 0.5f, 0.6f), {}, sphereRadius);
+            spheres[i].body = PhysicsBody::sphere(world, world.physics->createMaterial(0.5f, 0.5f, 0.6f), 1.0f, {}, sphereRadius);
             spheres[i].mesh = sphereMesh;
             spheres[i].material = sphereMats[i % sphereColorsCount];
         }
+
+        // Prepare obstacle
+        
 
         // Prepare motion clip
         auto idleBVH = MotionClipData::loadFromFile("resources/retargetted/111-36(pregnant_carry).bvh", 0.01f);
@@ -158,7 +161,7 @@ public:
         posePhysicsBody.putToSleep();
         
         // At first, character is in kinematic state.
-        world.scene->removeAggregate(*posePhysicsBody.aggregate);
+        //world.scene->removeAggregate(*posePhysicsBody.aggregate);
 
         pxDebugRenderer.init(world);
         pxDebugRenderer.setCamera(camera);
@@ -171,7 +174,7 @@ public:
         pickedBox = false;
         enablePhysics = false;
 
-        world.scene->removeAggregate(*posePhysicsBody.aggregate);
+        //world.scene->removeAggregate(*posePhysicsBody.aggregate);
 
         currentPose = animFSM.getCurrentPose();
 
@@ -210,7 +213,11 @@ public:
         time += dt;
         auto inputMgr = InputManager::get();
         if (inputMgr->isKeyEntered(SDL_SCANCODE_SPACE)) {
-            enablePhysics = !enablePhysics;
+            //enablePhysics = !enablePhysics;
+            kinematicChar = false;
+            //world.scene->addAggregate(*posePhysicsBody.aggregate);
+            // currentPose = animFSM.getCurrentPose();
+            // posePhysicsBody.setPose(currentPose, poseTree);
         }
         while (time >= physicsDt) {
             time -= physicsDt;
@@ -312,15 +319,15 @@ public:
         if(kinematicChar) {
             if(ImGui::Button("Enable Character Ragdoll")) {
                 kinematicChar = false;
-                world.scene->addAggregate(*posePhysicsBody.aggregate);
-                currentPose = animFSM.getCurrentPose();
-                posePhysicsBody.setPose(currentPose, poseTree);
+                // world.scene->addAggregate(*posePhysicsBody.aggregate);
+                // currentPose = animFSM.getCurrentPose();
+                // posePhysicsBody.setPose(currentPose, poseTree);
             }
         }
         else {
             if(ImGui::Button("Enable Character Control")) {
                 kinematicChar = true;
-                world.scene->removeAggregate(*posePhysicsBody.aggregate);
+                //world.scene->removeAggregate(*posePhysicsBody.aggregate);
             }
         }
 
