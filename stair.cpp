@@ -477,7 +477,7 @@ public:
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        pbRenderer.queueRender({groundMesh, groundMat, rootTransform->getWorldTransform()});
+        pbRenderer.queueRender({groundMesh, groundMat, glm::translate(glm::vec3(0, -0.03, 0))});
         renderMotionClip(pbRenderer, imRenderer, currentPose, poseTree, poseRenderBody);
         // renderMotionClip(pbRenderer, imRenderer, convertedPose, poseTree, poseRenderBody2);
 
