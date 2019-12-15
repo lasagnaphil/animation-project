@@ -329,7 +329,11 @@ public:
 
         // Update animation
         if (!enableRagdoll) {
-            animFSM.update(dt);
+            auto curstate = animFSM.getCurrentState();
+            if(curstate && animFSM.get(curstate)->name == "climb")
+                animFSM.update(dt * 4.0f);
+            else
+                animFSM.update(dt);
             currentPose = animFSM.getCurrentPose();
 
             auto boxTrans = box.body.getTransform();
