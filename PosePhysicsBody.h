@@ -159,31 +159,7 @@ struct PosePhysicsBody {
             pxJoint->setMotion(PxArticulationAxis::eSWING2, PxArticulationMotion::eLIMITED);
             pxJoint->setLimit(PxArticulationAxis::eSWING2, 0, 0.9f * M_PI);
         }
-         */
-        /*
-        {
-            auto idx = poseTree.findIdx("LeftHand");
-            auto endIdx = poseTree[idx].childJoints[0];
-            PxArticulationLink *link = articulation->createLink(nodeToLink[idx],
-                                                                           PxTransform(PxVec3(-0.05f, 0, 0)));
-            link->setName("LeftHandEnd");
-            auto geom = PxBoxGeometry(PxVec3(0.05f, 0.05f, 0.05f));
-            PxShape *shape = PxRigidActorExt::createExclusiveShape(*link, geom, *world.defaultMaterial);
-            PxRigidBodyExt::updateMassAndInertia(*link, 0.1f);
-            nodeToLink[endIdx] = link;
-        }
-        {
-            auto idx = poseTree.findIdx("RightHand");
-            auto endIdx = poseTree[idx].childJoints[0];
-            PxArticulationLink *link = articulation->createLink(nodeToLink[idx],
-                                                                PxTransform(PxVec3(0.05f, 0, 0)));
-            link->setName("RightHandEnd");
-            auto geom = PxBoxGeometry(PxVec3(0.05f, 0.05f, 0.05f));
-            PxShape *shape = PxRigidActorExt::createExclusiveShape(*link, geom, *world.defaultMaterial);
-            PxRigidBodyExt::updateMassAndInertia(*link, 0.1f);
-            nodeToLink[endIdx] = link;
-        }
-         */
+        */
 
         aggregate = world.physics->createAggregate(articulation->getNbLinks(), false);
         aggregate->addArticulation(*articulation);
@@ -257,6 +233,20 @@ struct PosePhysicsBody {
             pose.q[i] = PxToGLM(twistSwingToQuat(v));
         }
         */
+    }
+
+    void setPoseVelocityFromTwoPoses(const glmx::pose& p1, const glmx::pose& p2, float dt) {
+        PxArticulationCacheFlags flags = PxArticulationCache::eVELOCITY;
+        for (uint32_t i = 1; i < p1.size(); i++) {
+            glm::quat q = glm::inverse(p1.q[i]) * p2.q[i];
+
+            glm::vec3 v = glmx::quatToEuler(q, EulOrdZYXs);
+            uint32_t li = nodeToLink[i]->getLinkIndex();
+            cache->jointVelocity[dofStarts[li]] = -v.z / dt;
+            cache->jointVelocity[dofStarts[li] + 1] = -v.y / dt;
+            cache->jointVelocity[dofStarts[li] + 2] = -v.x / dt;
+        }
+        articulation->applyCache(*cache, flags);
     }
 
     void setRoot(const glmx::transform& rootTrans) {

@@ -252,10 +252,20 @@ public:
     }
 
     void startRagdoll() {
+        float dt = 1.0f / 120.0f;
         enableRagdoll = true;
         posePhysicsBody.setPose(currentPose, poseTree);
+
+        // Set velocity to articulated body (for more realism)
+        float t = animFSM.getStateTime();
+        glmx::pose beforePose = animFSM.getCurrentAnim().getFrame(t - dt);
+        posePhysicsBody.setPoseVelocityFromTwoPoses(beforePose, currentPose, dt);
         box.body.setKinematic(false);
-        // posePhysicsBody.applyImpulseTorqueAtRoot(glm::vec3(-0.007, 0, 0));
+
+        // To trip even more spectacularily, add some forces and torques
+        posePhysicsBody.applyImpulseTorqueAtRoot(glm::vec3(-0.005, 0, 0));
+        posePhysicsBody.applyImpulseAtRoot(glm::vec3(0, 0, -0.05));
+        box.body.body->addTorque(PxVec3(-0.05, 0, 0), PxForceMode::eIMPULSE, true);
     }
 
     void processInput(SDL_Event &event) override {
@@ -338,8 +348,8 @@ public:
                 auto rfootTrans = calcFK(poseTree, currentPose, poseTree.findIdx("RightFoot"));
                 auto obstaclePos = obstacle.body.getPosition();
                 lfootTrans.v.x = rfootTrans.v.x = obstaclePos.x = 0.0f;
-                if (glm::length(lfootTrans.v - obstaclePos) < 2 * obstacleSize.z ||
-                    glm::length(rfootTrans.v - obstaclePos) < 2 * obstacleSize.z) {
+                if (glm::length(lfootTrans.v - obstaclePos) < obstacleSize.z / sqrt(2.f) ||
+                    glm::length(rfootTrans.v - obstaclePos) < obstacleSize.z / sqrt(2.f)) {
                     startRagdoll();
                 }
             }
@@ -418,14 +428,16 @@ public:
         // imRenderer.drawPoint(pbRenderer.pointLights[1].position, colors::Yellow, 4.0f, true);
         // imRenderer.drawPoint(pbRenderer.pointLights[2].position, colors::Yellow, 4.0f, true);
         // imRenderer.drawPoint(pbRenderer.pointLights[3].position, colors::Yellow, 4.0f, true);
-        imRenderer.drawAxisTriad(glm::mat4(1.0f), 0.1f, 1.0f, false);
-        imRenderer.drawSphere(boxLeftPos, colors::Blue, 0.05f, true);
-        imRenderer.drawSphere(boxRightPos, colors::Blue, 0.05f, true);
-        glm::vec3 leftHandPos = calcFK(poseTree, currentPose, poseTree.findIdx("LeftHand")).v;
-        glm::vec3 rightHandPos = calcFK(poseTree, currentPose, poseTree.findIdx("RightHand")).v;
-        imRenderer.drawSphere(leftHandPos, colors::Green, 0.05f, true);
-        imRenderer.drawSphere(rightHandPos, colors::Green, 0.05f, true);
-        imRenderer.render();
+        if (enableDebugRendering) {
+            imRenderer.drawAxisTriad(glm::mat4(1.0f), 0.1f, 1.0f, false);
+            imRenderer.drawSphere(boxLeftPos, colors::Blue, 0.05f, true);
+            imRenderer.drawSphere(boxRightPos, colors::Blue, 0.05f, true);
+            glm::vec3 leftHandPos = calcFK(poseTree, currentPose, poseTree.findIdx("LeftHand")).v;
+            glm::vec3 rightHandPos = calcFK(poseTree, currentPose, poseTree.findIdx("RightHand")).v;
+            imRenderer.drawSphere(leftHandPos, colors::Green, 0.05f, true);
+            imRenderer.drawSphere(rightHandPos, colors::Green, 0.05f, true);
+            imRenderer.render();
+        }
 
         if (enableDebugRendering) {
             pxDebugRenderer.render(world);
@@ -506,7 +518,7 @@ private:
 
     glm::vec3 boxSize = {0.25f, 0.15f, 0.25f};
     float boxThickness = 0.025f;
-    glm::vec3 obstacleSize = {4.0f, 0.2f, 0.2f};
+    glm::vec3 obstacleSize = {4.0f, 0.1f, 0.1f};
 
     PhysicsObject box;
     std::vector<PhysicsObject> spheres;
@@ -523,6 +535,7 @@ private:
 
     bool isHoldingBox = false;
     bool isCameraFixed = true;
+
 
     glm::vec3 boxLeftPos, boxRightPos;
 
