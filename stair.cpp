@@ -233,7 +233,7 @@ public:
         /*
         auto [leftHandJoint, rightHandJoint] = posePhysicsBody.attachBoxToHands(world, poseTree, box.body,
                 PxTransform(PxVec3(-boxSize.x/2, 0, 0)), PxTransform(PxVec3(boxSize.x/2, 0, 0)), 0.03f);
-                */
+        */
 
         reset();
     }
@@ -292,10 +292,10 @@ public:
 
         // To trip even more spectacularily, add some forces and torques
         posePhysicsBody.applyImpulseTorqueAtRoot(glm::vec3(-0.002, 0, 0));
-        posePhysicsBody.applyImpulseAtRoot(glm::vec3(0, 0.014, -0.074));
+        posePhysicsBody.applyImpulseAtRoot(glm::vec3(0, 0.014, -0.04));
         //posePhysicsBody.applyVelocityChangeAtRoot(glm::vec3(0, 0, -0.05));
         box.body.body->addTorque(PxVec3(-0.05, 0, 0), PxForceMode::eIMPULSE, true);
-        box.body.body->addForce(PxVec3(0, 0, -0.05), PxForceMode::eIMPULSE, true);
+        box.body.body->addForce(PxVec3(0, 0, -0.75f), PxForceMode::eIMPULSE, true);
     }
 
     void processInput(SDL_Event &event) override {
