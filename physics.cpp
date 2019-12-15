@@ -202,11 +202,11 @@ public:
         for (int i = 0; i < poseTree.numNodes; i++) {
             mats[i] = Resources::make<PBRMaterial>();
             mats[i]->texAlbedo = Texture::fromSingleColor(colors::WhiteSmoke);
-            mats[i]->texAO = defaultAO;
+            mats[i]->texAO = Texture::fromSingleColor({1.0f, 0.0f, 0.0f});
             mats[i]->texMetallic = Texture::fromSingleColor({0.8f, 0.0f, 0.0f});
             mats[i]->texRoughness = Texture::fromSingleColor({0.8f, 0.0f, 0.0f});
         }
-        poseRenderBody = PoseRenderBodyPBR::createFromSkel(poseTree, posePhysicsBodySkel, mats);
+        poseRenderBody = createFromSkel(poseTree, posePhysicsBodySkel, mats);
 
         reset();
     }

@@ -222,12 +222,21 @@ public:
         Ref<PBRMaterial> poseBodyMat2 = Resources::clone<PBRMaterial>(poseBodyMat);
         poseBodyMat2->texAlbedo = Texture::fromSingleColor({0.0f, 0.5f, 0.0f});
 
-        poseRenderBody = PoseRenderBodyPBR::createAsBoxes(poseTree, 0.02f, poseBodyMat);
-        poseRenderBody2 = PoseRenderBodyPBR::createAsBoxes(poseTree, 0.02f, poseBodyMat2);
+        poseRenderBodySimple = PoseRenderBodyPBR::createAsBoxes(poseTree, 0.02f, poseBodyMat);
 
         posePhysicsBodySkel = PosePhysicsBodySkel::fromFile("resources/humanoid_complex_edited.xml", poseTree);
         posePhysicsBody.init(world, poseTree, posePhysicsBodySkel);
         posePhysicsBody.setRoot(glmx::transform(glm::vec3(0.f, 0.9f, 0.f)));
+
+        std::vector<Ref<PBRMaterial>> mats(poseTree.numNodes);
+        for (int i = 0; i < poseTree.numNodes; i++) {
+            mats[i] = Resources::make<PBRMaterial>();
+            mats[i]->texAlbedo = Texture::fromSingleColor(colors::WhiteSmoke);
+            mats[i]->texAO = Texture::fromSingleColor({1.0f, 0.0f, 0.0f});
+            mats[i]->texMetallic = Texture::fromSingleColor({0.8f, 0.0f, 0.0f});
+            mats[i]->texRoughness = Texture::fromSingleColor({0.8f, 0.0f, 0.0f});
+        }
+        poseRenderBody = createFromSkel(poseTree, posePhysicsBodySkel, mats);
 
         // Now attach the box to the hands
         /*
@@ -315,6 +324,9 @@ public:
         }
         if (inputMgr->isKeyEntered(SDL_SCANCODE_F1)) {
             enableDebugRendering = !enableDebugRendering;
+        }
+        if (inputMgr->isKeyEntered(SDL_SCANCODE_F2)) {
+            renderSimple = !renderSimple;
         }
         if (inputMgr->isKeyEntered(SDL_SCANCODE_RETURN)) {
             //startRagdoll();
@@ -478,8 +490,10 @@ public:
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         pbRenderer.queueRender({groundMesh, groundMat, glm::translate(glm::vec3(0, -0.03, 0))});
-        renderMotionClip(pbRenderer, imRenderer, currentPose, poseTree, poseRenderBody);
-        // renderMotionClip(pbRenderer, imRenderer, convertedPose, poseTree, poseRenderBody2);
+        if (renderSimple)
+            renderMotionClip(pbRenderer, imRenderer, currentPose, poseTree, poseRenderBodySimple);
+        else
+            renderMotionClipComplex(pbRenderer, imRenderer, currentPose, poseTree, poseRenderBody);
 
         if (enableBox) {
             auto boxTrans = box.body.getTransform();
@@ -568,7 +582,8 @@ private:
     Ref<AnimState> pickupState;
     uint32_t startPickupFrameIdx = 36;
 
-    PoseRenderBodyPBR poseRenderBody, poseRenderBody2;
+    PoseRenderBodyPBR poseRenderBody;
+    PoseRenderBodyPBR poseRenderBodySimple;
 
     PxFoundation* pxFoundation;
     PhysicsWorld world;
@@ -598,6 +613,7 @@ private:
     float stairZ = -4.85f;
 
     bool enableDebugRendering = true;
+    bool renderSimple = false;
 
     bool enableRagdoll = false;
     bool enableManipulation = false;
