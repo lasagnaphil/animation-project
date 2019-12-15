@@ -10,6 +10,7 @@
 #include "MotionClipData.h"
 #include "MotionClipPlayer.h"
 #include "PoseKinematics.h"
+#include "AnimStateMachine.h"
 
 PxDefaultAllocator gAllocator = {};
 PxDefaultErrorCallback gErrorCallback = {};
@@ -80,27 +81,15 @@ public:
 
         // Prepare the box
         if (enableBox) {
-            box.mesh = Mesh::makeCube(boxSize);
-            // box.mesh = Mesh::fromOBJFile("resources/box_edited.obj");
+            box.mesh = Mesh::fromOBJFile("resources/box_edited2.obj");
             box.material = Resources::make<PBRMaterial>();
             box.material->texAlbedo = Texture::fromSingleColor(glm::vec3(0.4f));
             box.material->texAO = Texture::fromSingleColor(glm::vec3(1.0f, 0.0f, 0.0f));
             box.material->texMetallic = Texture::fromSingleColor(glm::vec3(0.5f, 0.0f, 0.0f));
             box.material->texRoughness = Texture::fromSingleColor(glm::vec3(0.5f, 0.0f, 0.0f));
             box.mesh->indices.clear(); // We don't need the index buffer
-            /*
-            auto collider = box.mesh->generateCollider();
-            auto bodyOpt = PhysicsBody::fromMesh(world, collider, world.physics->createMaterial(0.5f, 0.5f, 0.6f));
-            if (!bodyOpt) {
-                fprintf(stderr, "PhysicsBody::fromMesh() failed to generate mesh.\n");
-                exit(EXIT_FAILURE);
-            }
-            box.body = *bodyOpt;
-             */
-            box.body = PhysicsBody::box(world, world.physics->createMaterial(0.5f, 0.5f, 0.6f), 1.0f,
-                    {}, glm::identity<glm::quat>(), boxSize);
-            // box.body.body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
-
+            box.body = PhysicsBody::ourBox(world, boxSize.x, boxSize.y, boxSize.z, boxThickness,
+                    world.physics->createMaterial(0.5f, 0.5f, 0.6f));
             box.body.body->setRigidBodyFlag(PxRigidBodyFlag::eKINEMATIC, true);
         }
         if (enableSpheres) {
@@ -134,21 +123,47 @@ public:
         }
 
         // Prepare motion clip
+        pickupBVH = MotionClipData::loadFromFile("resources/retargetted/111-17(pregnant_pick_up).bvh", 0.01f);
+        auto idleBVH = MotionClipData::loadFromFile("resources/retargetted/111-36(pregnant_carry).bvh", 0.01f);
+        auto walkBVH = MotionClipData::loadFromFile("resources/retargetted/111-36(pregnant_carry).bvh", 0.01f);
 
-        bvh = MotionClipData::loadFromFile("resources/retargetted/111-17(pregnant_pick_up).bvh", 0.01f);
-        if (!bvh.valid) {
-            fprintf(stderr, "BVH load failed!\n");
-            exit(EXIT_FAILURE);
+        //bvh = walkBVH;
+
+        poseTree = pickupBVH.poseTree;
+        currentPose = glmx::pose::empty(poseTree.numJoints);
+
+        auto pickupPoses = pickupBVH.slice(1, pickupBVH.numFrames);
+        auto idlePoses = std::vector<glmx::pose>(30, pickupBVH.poseStates[pickupBVH.numFrames - 1]);
+        auto walkPoses = walkBVH.slice(240, walkBVH.numFrames);
+
+        auto pickupAnim = animFSM.addAnimation("pickup", pickupPoses, 30);
+        auto idleAnim = animFSM.addAnimation("idle", idlePoses, 30);
+        auto walkAnim = animFSM.addAnimation("walk", walkPoses, 30);
+
+        for (Ref<Animation> anim : { pickupAnim, idleAnim, walkAnim })
+        {
+            animFSM.get(anim)->setStartingRootPos(0.0f, 0.0f);
         }
-        poseTree = bvh.poseTree;
-        // for (auto& poseState : bvh.poseStates) {
-            // poseState.v.y -= poseTree[0].offset.y;
-        //}
-        currentPose = bvh.poseStates[0];
-        convertedPose = currentPose;
 
-        motionClipPlayer = MotionClipPlayer(&bvh);
-        motionClipPlayer.init();
+        pickupState = animFSM.addState("pickup", pickupAnim);
+        auto idleState = animFSM.addState("idle", idleAnim);
+        auto walkState = animFSM.addState("walk", walkAnim);
+
+        animFSM.addParam("is_walking", false);
+
+        auto finishPickupTrans = animFSM.addTransition("finish_pickup", pickupState, idleState, 0.2f, 0.2f, 0.2f);
+
+        auto repeatIdleTrans = animFSM.addTransition("repeat_idle", idleState, idleState, 0.0f, 0.0f, 0.0f);
+
+        auto repeatWalkingTrans = animFSM.addTransition("repeat_walking", walkState, walkState, 1.0f, 1.0f, 1.0f);
+
+        auto startWalkingTrans = animFSM.addTransition("start_walking", idleState, walkState, 1.0f, 1.0f, 1.0f);
+        animFSM.setTransitionCondition(startWalkingTrans, "is_walking", true);
+
+        auto stopWalkingTrans = animFSM.addTransition("stop_walking", walkState, idleState, 1.0f, 1.0f, 1.0f);
+        animFSM.setTransitionCondition(stopWalkingTrans, "is_walking", false);
+
+        animFSM.setCurrentState(pickupState);
 
         // Prepare the human body
 
@@ -181,24 +196,40 @@ public:
 
     void reset() {
         enableRagdoll = false;
-        motionClipPlayer.setFrame(27);
-        currentPose = motionClipPlayer.getPoseState();
+        animFSM.setCurrentState(pickupState);
+        currentPose = animFSM.getCurrentPose();
+
         posePhysicsBody.setPose(currentPose, poseTree);
 
         if (enableBox) {
-            box.body.setPosition(glm::vec3(0.4f, 0.0f, 0.4f));
+            auto pickupPose = animFSM.getCurrentAnim().poses[startPickupFrameIdx];
+            auto leftHandTrans = calcFK(poseTree, pickupPose, poseTree.findIdx("LeftHand"));
+            auto rightHandTrans = calcFK(poseTree, pickupPose, poseTree.findIdx("RightHand"));
+            glmx::transform boxTrans;
+            boxTrans.v.x = 0.5f * (leftHandTrans.v.x + rightHandTrans.v.x);
+            boxTrans.v.y = 0.0f;
+            boxTrans.v.z = pickupPose.v.z - 0.4f;
+            boxTrans.q = glm::identity<glm::quat>();
+            box.body.setTransform(boxTrans);
+
             box.body.setLinearVelocity({});
             box.body.setAngularVelocity({});
         }
 
         if (enableSpheres) {
-            for (int i = 0; i < sphereCount; i++) {
-                spheres[i].body.setPosition(
-                        glm::vec3((i % 10) * 2 * (sphereRadius + sphereDist),
-                                  sphereRadius,
-                                  (i / 10) * 2 * (sphereRadius + sphereDist)));
-                spheres[i].body.setLinearVelocity({});
-                spheres[i].body.setAngularVelocity({});
+            glm::vec3 boxPos = box.body.getTransform().v;
+            for(int x = 0; x < sphereCountWidth; x++) {
+                for(int y = 0; y < sphereCountWidth; y++) {
+                    for(int z = 0; z < sphereCountWidth; z++) {
+                        int i = x * sphereCountWidth * sphereCountWidth + y * sphereCountWidth + z;
+                        spheres[i].body.setPosition(
+                                glm::vec3(boxPos.x - boxSize.x + 3.0f * sphereRadius + x * 2.0f * (sphereRadius + sphereDist),
+                                          boxPos.y + sphereRadius + boxThickness * 2.0f + y * 2.0f * (sphereRadius + sphereDist),
+                                          boxPos.z - boxSize.z + 3.0f * sphereRadius + z * 2.0f * (sphereRadius + sphereDist)));
+                        spheres[i].body.setLinearVelocity({});
+                        spheres[i].body.setAngularVelocity({});
+                    }
+                }
             }
         }
     }
@@ -211,6 +242,7 @@ public:
         const float physicsDt = 1.0f / 120.0f;
 
         time += dt;
+
         auto inputMgr = InputManager::get();
         if (inputMgr->isKeyEntered(SDL_SCANCODE_SPACE)) {
             enablePhysics = !enablePhysics;
@@ -218,7 +250,58 @@ public:
         if (inputMgr->isKeyEntered(SDL_SCANCODE_F1)) {
             enableDebugRendering = !enableDebugRendering;
         }
-        motionClipPlayer.update(dt);
+        if (inputMgr->isKeyPressed(SDL_SCANCODE_UP))
+            animFSM.setParam("is_walking", true);
+        else
+            animFSM.setParam("is_walking", false);
+
+        // Update animation
+        animFSM.update(dt);
+        currentPose = animFSM.getCurrentPose();
+
+        auto boxTrans = box.body.getTransform();
+        boxLeftPos = boxTrans.v - glm::vec3(boxSize.x + 0.02f, 0, 0);
+        boxRightPos = boxTrans.v + glm::vec3(boxSize.x + 0.02f, 0, 0);
+        boxLeftPos.y += 2 * boxSize.y;
+        boxRightPos.y += 2 * boxSize.y;
+
+        // If animation controller arrives at hard-coded state, then start holding the box
+        auto currentState = animFSM.getCurrentState();
+        if (currentState && animFSM.get(currentState)->name == "pickup") {
+            if (animFSM.getStateTime() >= 36.f / 30.f) {
+                isHoldingBox = true;
+            }
+        }
+        if (isHoldingBox) {
+            uint32_t leftHandIdx = poseTree.findIdx("LeftHand");
+            uint32_t rightHandIdx = poseTree.findIdx("RightHand");
+            auto leftHandTrans = calcFK(poseTree, currentPose, leftHandIdx);
+            auto rightHandTrans = calcFK(poseTree, currentPose, rightHandIdx);
+            glmx::transform boxTrans;
+            boxTrans.v.x = 0.5f * (leftHandTrans.v.x + rightHandTrans.v.x);
+            boxTrans.v.y = 0.5f * (leftHandTrans.v.y + rightHandTrans.v.y) - 2 * boxSize.y;
+            if (boxTrans.v.y < 0.0f) boxTrans.v.y = 0.0f;
+            boxTrans.v.z = currentPose.v.z - 0.4f;
+            float theta = atan2(rightHandTrans.v.z - leftHandTrans.v.z, rightHandTrans.v.x - leftHandTrans.v.x);
+            boxTrans.q = glm::rotate(-theta, glm::vec3(0, 1, 0));
+            boxLeftPos = boxTrans.v - boxTrans.q * glm::vec3(boxSize.x + 0.02f, 0, 0);
+            boxRightPos = boxTrans.v + boxTrans.q * glm::vec3(boxSize.x + 0.02f, 0, 0);
+            boxLeftPos.y += 2 * boxSize.y;
+            boxRightPos.y += 2 * boxSize.y;
+            box.body.setTransform(boxTrans);
+
+            solveTwoJointIK(poseTree, currentPose,
+                            poseTree.findIdx("LeftArm"), poseTree.findIdx("LeftForeArm"),
+                            poseTree.findIdx("LeftHand"),
+                            boxLeftPos);
+
+            solveTwoJointIK(poseTree, currentPose,
+                            poseTree.findIdx("RightArm"), poseTree.findIdx("RightForeArm"),
+                            poseTree.findIdx("RightHand"),
+                            boxRightPos);
+        }
+
+        // Update physics
         while (time >= physicsDt) {
             time -= physicsDt;
 
@@ -242,39 +325,12 @@ public:
                 posePhysicsBody.getPose(currentPose, poseTree);
             }
             else {
-                currentPose = motionClipPlayer.getPoseState();
-                uint32_t leftHandIdx = poseTree.findIdx("LeftHand");
-                uint32_t rightHandIdx = poseTree.findIdx("RightHand");
-                uint32_t leftRelevantIndices[] = {
-                        poseTree.findIdx("LeftArm"), poseTree.findIdx("LeftForeArm")
-                };
-                uint32_t rightRelevantIndices[] = {
-                        poseTree.findIdx("RightArm"), poseTree.findIdx("RightForeArm")
-                };
-                auto leftHandTrans = calcFK(poseTree, currentPose, leftHandIdx);
-                auto rightHandTrans = calcFK(poseTree, currentPose, rightHandIdx);
-                glmx::transform boxTrans;
-                boxTrans.v.x = 0.5f * (leftHandTrans.v.x + rightHandTrans.v.x);
-                boxTrans.v.y = 0.5f * (leftHandTrans.v.y + rightHandTrans.v.y);
-                boxTrans.v.z = currentPose.v.z - 0.4f;
-                boxTrans.q = glm::identity<glm::quat>();
-                boxLeftPos = boxTrans.v - glm::rotate(boxTrans.q, {boxSize.x / 2, 0, 0});
-                boxRightPos = boxTrans.v + glm::rotate(boxTrans.q, {boxSize.x / 2, 0, 0});
-                box.body.setTransform(boxTrans);
-
-                solveTwoJointIK(poseTree, currentPose,
-                                poseTree.findIdx("LeftArm"), poseTree.findIdx("LeftForeArm"), poseTree.findIdx("LeftHand"),
-                                boxLeftPos);
-
-                solveTwoJointIK(poseTree, currentPose,
-                                poseTree.findIdx("RightArm"), poseTree.findIdx("RightForeArm"), poseTree.findIdx("RightHand"),
-                                boxRightPos);
-
                 posePhysicsBody.setPose(currentPose, poseTree);
-
-                bool advanced = world.advance(physicsDt);
-                if (advanced) {
-                    world.fetchResults();
+                if (enablePhysics) {
+                    bool advanced = world.advance(physicsDt);
+                    if (advanced) {
+                        world.fetchResults();
+                    }
                 }
             }
         }
@@ -317,12 +373,12 @@ public:
             pxDebugRenderer.render(world);
         }
 
-        motionClipPlayer.renderImGui();
-
         renderImGui();
     }
 
     void renderImGui() {
+        animFSM.renderImGui(poseTree);
+
         ImGui::Begin("Character Data");
 
         ImGui::Checkbox("Enable Manipulation", &enableManipulation);
@@ -367,8 +423,11 @@ private:
 
     glmx::pose currentPose, convertedPose;
     PoseTree poseTree;
-    MotionClipData bvh;
-    MotionClipPlayer motionClipPlayer;
+    MotionClipData pickupBVH;
+    AnimStateMachine animFSM;
+    Ref<AnimState> pickupState;
+    uint32_t startPickupFrameIdx = 36;
+
     PoseRenderBodyPBR poseRenderBody, poseRenderBody2;
 
     PxFoundation* pxFoundation;
@@ -378,11 +437,13 @@ private:
     PosePhysicsBodySkel posePhysicsBodySkel;
 
     const int sphereColorsCount = 10;
-    const int sphereCount = 100;
-    const float sphereRadius = 0.025f;
+    const int sphereCountWidth = 5;
+    const int sphereCount = sphereCountWidth * sphereCountWidth * sphereCountWidth;
+    const float sphereRadius = 0.035f;
     const float sphereDist = 0.001f;
 
-    glm::vec3 boxSize = {0.3f, 0.3f, 0.3f};
+    glm::vec3 boxSize = {0.25f, 0.15f, 0.25f};
+    float boxThickness = 0.025f;
 
     PhysicsObject box;
     std::vector<PhysicsObject> spheres;
@@ -394,9 +455,12 @@ private:
     bool enablePhysics = true;
 
     bool enableBox = true;
-    bool enableSpheres = false;
+    bool enableSpheres = true;
+
+    bool isHoldingBox = false;
 
     glm::vec3 boxLeftPos, boxRightPos;
+
 };
 
 int main(int argc, char** argv) {
