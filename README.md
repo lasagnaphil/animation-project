@@ -58,3 +58,12 @@ make -j8 animation_project
 ## gengine
 
 For how to use the gengine library, look at the demos.
+
+## Run Program
+
+There are 3 demos you can run : physics_test, jump_anim, stair_anim.
+Before run those demos, please copy and paste [resources] and [shaders] folders in the root folder to [build] folder.
+
+- physics_test : Just keep press upper arrow key until character reaches the obstacle.
+- jump_anim : Just keep press lower arrow key while jump animation ends.
+- stair_anim : Keep press upper arrow key until character reaches staircase. It will automatically stop in front of the staircase. Then, press lower arrow key to climb the stair and fall.
