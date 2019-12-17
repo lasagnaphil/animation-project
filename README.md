@@ -3,9 +3,9 @@
 ## Requirements
 
 - Linux or Mac OS environment (Sorry Windows folks)
-- A C++17 compiler
+- A C++17 compiler (Note: Clang is needed to build PhysX)
 
-If your C++ compiler is old (ex. the default g++ in Ubuntu 18.04 LTS), then you have to install gcc 7.0 separately. For example on Ubuntu:
+If your gcc compiler is old (ex. the default g++ in Ubuntu 18.04 LTS), then you have to install gcc 7.0 separately. (Or just use clang) For example on Ubuntu:
 
 ```
 sudo apt-get update
@@ -25,7 +25,7 @@ sudo apt-get install -y libsdl2-dev
 ```
 git clone https://github.com/lasagnaphil/PhysX
 cd PhysX/physx
-./generate_projects.sh ( Now plz use option 3 : clang )
+./generate_projects.sh # Now plz use option 3 : clang
 cd compiler/linux-debug && make -j8 && cd ../..
 cd compiler/linux-release && make -j8 && cd ../../
 ```
@@ -41,7 +41,6 @@ PXSHARED_HOME = /home/lasagnaphil/dev/PhysX/pxshared
 ```
 
 ## Download & Compliation
-
 
 ```
 # Do not forget the --recursive tag! This project uses submodules a lot
