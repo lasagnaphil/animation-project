@@ -2,9 +2,9 @@
 #ifndef TERM_BOX_H
 #define TERM_BOX_H
 
-#include "gengine/Transform.h"
-#include "gengine/PoseTree.h"
-#include "gengine/glmx/pose.h"
+#include "Transform.h"
+#include "PoseTree.h"
+#include "glmx/pose.h"
 
 class Box {
 public:

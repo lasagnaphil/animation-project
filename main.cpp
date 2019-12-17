@@ -2,8 +2,7 @@
 #include "App.h"
 #include "PBRenderer.h"
 #include "FlyCamera.h"
-#include "PhysicsWorld.h"
-#include "PosePhysicsBody.h"
+#include "physx/PhysicsWorld.h"
 
 PxDefaultAllocator gAllocator = {};
 PxDefaultErrorCallback gErrorCallback = {};
